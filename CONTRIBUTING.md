@@ -28,16 +28,16 @@ Follow [docs/DEVELOPMENT_SETUP.md](docs/DEVELOPMENT_SETUP.md). Keep dependency c
 
 ## Database changes
 
-When changing `db/schema.ts`:
+When changing `convex/schema.ts`:
 
 1. update the relevant documentation in `docs/DATA_MODEL.md`;
-2. run `npm run db:generate`;
-3. inspect the generated SQL before committing it;
-4. apply the migration to the local D1 database;
-5. verify old data remains valid; and
-6. include migration and rollback notes in the pull request.
+2. run `npx convex dev --once` against the development deployment;
+3. review index additions, removals, and schema validation output;
+4. test the change against existing development data;
+5. verify old records remain valid; and
+6. include the data migration and rollback plan in the pull request.
 
-Never rewrite an already published migration. Add a new migration.
+Never remove or narrow a production field until existing data has been migrated and verified.
 
 ## Product rules
 
@@ -58,7 +58,7 @@ Before opening a pull request:
 npm run build
 ```
 
-Also verify the changed flow manually. If the change includes a migration, test it against a fresh local database and an existing migrated database.
+Also verify the changed flow manually. If the change includes a data migration, test it against both an empty development deployment and a deployment containing representative records.
 
 ## Pull requests
 
@@ -89,4 +89,3 @@ The GitHub repository is public. Do not commit:
 - unapproved internal financial or strategic data.
 
 If sensitive data is committed, stop work and alert the repository owner immediately. Do not merely delete it in a later commit because Git history retains it.
-

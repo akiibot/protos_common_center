@@ -13,7 +13,7 @@ Delivered:
 - goals, sales, clients, projects, tasks, content, finance, team, and knowledge views;
 - persistent task-status and lead-stage changes;
 - quick creation for tasks, leads, and content ideas;
-- initial D1 data model and representative Protos records;
+- Convex data model and migrated representative Protos records;
 - private hosted deployment; and
 - browser agent tools for summary and workspace navigation.
 
@@ -121,4 +121,3 @@ Exit criteria:
 - New features require a named owner, user outcome, and acceptance criteria.
 - Avoid automating an unclear manual workflow; stabilize the workflow first.
 - Do not build Release 4 intelligence on incomplete Release 2 data.
-

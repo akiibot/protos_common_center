@@ -5,6 +5,7 @@
 - Node.js 22.13 or newer
 - npm
 - Git
+- a Convex account with access to the Protos project
 
 ## Clone and install
 
@@ -14,6 +15,37 @@ cd protos_common_center
 npm install
 ```
 
+## Connect a development backend
+
+Run:
+
+```bash
+npm run convex:dev
+```
+
+The Convex CLI signs you in, connects or creates a development deployment, creates `.env.local`, generates typed API bindings, and watches the `convex/` directory.
+
+The web application uses a server-only gateway. For local development, configure these ignored values in `.env.local`:
+
+```text
+CONVEX_URL=<your development deployment URL>
+CONVEX_SERVER_SECRET=<a local development secret>
+```
+
+Set the same local secret on the Convex development deployment as `WORKSPACE_API_SECRET`. Never commit either secret.
+
+For a fresh development database, run the `workspace:seedWorkspace` mutation once with that development secret. The mutation is idempotent and will not insert a second workspace when `org_protos` already exists.
+
+## Start development
+
+Keep `npm run convex:dev` running in one terminal. In another terminal, run:
+
+```bash
+npm run dev
+```
+
+Open `http://127.0.0.1:5173`.
+
 ## Build
 
 ```bash
@@ -22,40 +54,15 @@ npm run build
 
 The build must succeed before a pull request is ready for review.
 
-## Local database
-
-The application expects a D1 binding named `DB`. Generate a migration after changing `db/schema.ts`:
-
-```bash
-npm run db:generate
-```
-
-Inspect the new SQL file under `drizzle/`. After one successful build, apply pending migrations to the local D1 database in order:
-
-```bash
-node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_tiresome_captain_cross.sql
-```
-
-Replace the filename with each pending migration. Do not replay migrations already applied to the same local state.
-
-## Start development
-
-```bash
-npm run dev
-```
-
-Open `http://127.0.0.1:5173`.
-
-Local D1 state is stored under ignored `.wrangler/` directories. The application seeds representative Protos records when the workspace is empty.
-
 ## Useful commands
 
 | Command | Purpose |
 |---|---|
-| `npm run dev` | Start the development server with hot reload. |
-| `npm run build` | Create the production-compatible application build. |
+| `npm run dev` | Start the web application with hot reload. |
+| `npm run build` | Create the production-compatible Worker build. |
 | `npm run start` | Run the built Worker locally. |
-| `npm run db:generate` | Generate SQL migrations from schema changes. |
+| `npm run convex:dev` | Sync Convex functions and regenerate typed bindings. |
+| `npm run convex:deploy` | Deploy schema and functions to the production Convex deployment. |
 | `npm run lint` | Run static lint checks when relevant. |
 
 ## Working on an issue
@@ -70,21 +77,34 @@ Commit focused changes with clear messages. Push the branch and open a pull requ
 
 ## Environment and secrets
 
-Do not commit local environment files, tokens, credentials, production exports, or real confidential client information. If a future feature requires a secret, document the variable name in an example file without adding its value.
+Do not commit local environment files, Convex credentials, Sites credentials, production exports, tokens, or confidential business information. Document variable names without including their values.
+
+Browser code must never receive `CONVEX_SERVER_SECRET` or `WORKSPACE_API_SECRET`. Browser requests go through the same-origin API gateway.
 
 ## Production deployment
 
-GitHub does not automatically publish the OpenAI Sites deployment. A maintainer publishes an approved merged commit separately. Contributors should not change the production access policy or deploy migrations unless the owner explicitly assigns that release task.
+Production has two coordinated deployments:
+
+1. Deploy compatible backend functions and schema with `npm run convex:deploy`.
+2. Verify any data migration in Convex.
+3. Configure the Site runtime with the production `CONVEX_URL` and matching secret.
+4. Build and publish the OpenAI Site.
+
+Merging into GitHub does not automatically publish either production deployment. Only a maintainer should perform the production release.
 
 ## Troubleshooting
 
-### The database has no tables
+### The workspace remains on the loading screen
 
-Build the application, then apply the pending migrations to local D1.
+Confirm `CONVEX_URL` and `CONVEX_SERVER_SECRET` exist in the web runtime and that the matching `WORKSPACE_API_SECRET` exists on the selected Convex deployment.
 
-### A schema change appears locally but not in SQL
+### The workspace is not initialized
 
-Run `npm run db:generate` and inspect the generated migration.
+Run the idempotent `workspace:seedWorkspace` mutation against the intended development deployment using its configured secret.
+
+### Convex types are missing or stale
+
+Run `npx convex codegen` or `npm run convex:dev`.
 
 ### The development port is already in use
 
@@ -93,8 +113,3 @@ Stop the prior development process or start on a different loopback port:
 ```bash
 npm run dev -- --port 5174
 ```
-
-### The application shows representative seed data
-
-This is expected in an empty local database. Never replace representative records with confidential production data in a public branch.
-

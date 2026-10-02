@@ -4,7 +4,7 @@ This document translates the roadmap into buildable epics. GitHub Issues are the
 
 ## Current baseline
 
-The application currently has a single responsive workspace with server-rendered D1 data and client-side operating views. Task status changes, lead stage changes, and quick creation of tasks, leads, and content ideas persist through `/api/records`.
+The application currently has a single responsive workspace backed by Convex. The browser uses a same-origin `/api/workspace` gateway, and the gateway calls secret-protected Convex queries and mutations. Task status changes, lead stage changes, and quick creation of tasks, leads, and content ideas persist in Convex.
 
 Current tables: organizations, members, goals, projects, tasks, leads, content items, finance entries, and activity events.
 
@@ -338,4 +338,3 @@ A GitHub Issue is complete only when:
 - migrations are generated and reviewed when required;
 - automated or manual verification is recorded; and
 - the pull request has been reviewed.
-

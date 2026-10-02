@@ -12,7 +12,7 @@ The first usable release is live. It contains:
 - projects, tasks, and ownership views;
 - content, finance, team, and knowledge views;
 - quick creation for tasks, leads, and content ideas; and
-- persistent Cloudflare D1 storage.
+- persistent Convex storage with a server-only application gateway.
 
 The current release is an operational foundation, not the finished system. Several views are still read-only or use representative seed data. See [ROADMAP.md](ROADMAP.md) for release sequencing and [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md) for the detailed backlog.
 
@@ -32,8 +32,8 @@ The current release is an operational foundation, not the finished system. Sever
 
 - React 19 and Next-compatible Vinext
 - TypeScript
-- Cloudflare Workers and D1
-- Drizzle ORM and generated SQL migrations
+- Cloudflare Workers for the web application runtime
+- Convex for the application backend and database
 - Tailwind CSS and shared UI primitives
 - OpenAI Sites hosting
 
@@ -47,7 +47,7 @@ npm run build
 npm run dev
 ```
 
-The local application opens at `http://127.0.0.1:5173`. D1 setup and migration instructions are in [docs/DEVELOPMENT_SETUP.md](docs/DEVELOPMENT_SETUP.md).
+The local application opens at `http://127.0.0.1:5173`. Convex setup and deployment instructions are in [docs/DEVELOPMENT_SETUP.md](docs/DEVELOPMENT_SETUP.md).
 
 ## Collaboration workflow
 

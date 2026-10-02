@@ -6,10 +6,10 @@
 - Every business record belongs to an organization.
 - Dates use ISO-compatible strings and display in `Asia/Dhaka`.
 - Monetary amounts use integer paisha with BDT as the default currency.
-- Published migrations are immutable.
+- Convex schema and index changes must remain compatible with stored production documents until a verified data migration is complete.
 - Business records should gain archive metadata instead of destructive deletion.
 
-## Current tables
+## Current Convex tables
 
 ### organizations
 
@@ -115,5 +115,4 @@ Organization
 
 ## Migration policy
 
-Every schema change requires a new generated migration, inspection of generated SQL, a forward-data migration plan where required, verification against fresh and existing local databases, updated documentation, and release notes explaining production risk and rollback strategy.
-
+Every schema change requires validation against the development deployment, a forward-data migration when existing documents need reshaping, verification against empty and populated deployments, updated documentation, and release notes explaining production risk and rollback strategy. Destructive schema changes happen only after the related data has been migrated and verified.

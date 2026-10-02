@@ -4,103 +4,101 @@
 
 ```text
 Browser
-  ├─ Server-rendered workspace page
-  ├─ Client-side navigation and optimistic updates
-  └─ POST /api/records
+  ├─ Single-page operating workspace
+  ├─ Optimistic task and lead updates
+  ├─ GET /api/workspace
+  └─ POST /api/workspace
             │
             ▼
-      Workspace service
+   Server-only Convex gateway
+     ├─ Zod request validation
+     ├─ Convex deployment URL
+     └─ Server credential
             │
             ▼
-      Drizzle ORM → Cloudflare D1
+   Convex queries and mutations
+            │
+            ▼
+       Convex database
 
 OpenAI Sites
-  ├─ Cloudflare Worker-compatible application runtime
+  ├─ Cloudflare Worker-compatible web runtime
+  ├─ Runtime environment configuration
   ├─ Site-level access policy
   └─ Manual version publication
 ```
 
 ## Runtime
 
-The application uses React 19 with a Next-compatible Vinext build. The deployable output is a Cloudflare Worker. UI code lives primarily under `app/`, shared record logic under `lib/`, and D1 schema definitions under `db/`.
+The web application uses React 19 with a Next-compatible Vinext build. Its deployable output is a Cloudflare Worker hosted by OpenAI Sites. The application backend and structured data run on Convex.
+
+UI code lives under `app/`, the server-only Convex client is in `lib/convex-server.ts`, and the Convex schema and backend functions live under `convex/`.
 
 ## Rendering and client state
 
-`app/page.tsx` loads a workspace snapshot on the server. `app/dashboard-client.tsx` receives the snapshot, renders all operating views, and performs optimistic updates for supported actions.
+`app/page.tsx` renders the workspace client. `app/dashboard-client.tsx` loads a complete workspace snapshot through the same-origin gateway, renders the operating views, applies optimistic changes for supported actions, and refreshes after committed writes. A short background refresh keeps multiple team sessions reasonably current without exposing backend credentials to the browser.
 
-The current application uses a single page with client-side view switching. Add separate routes only when deep linking, record detail, navigation history, or loading boundaries make them materially better.
+The application currently uses a single page with client-side view switching. Add separate routes only when deep linking, record detail, navigation history, or loading boundaries make them materially better.
 
 ## Persistence
 
-The `DB` binding is a Cloudflare D1 database. `db/index.ts` obtains the runtime binding and creates a Drizzle client. `db/schema.ts` defines tracked tables. SQL migrations live under `drizzle/`.
+`convex/schema.ts` defines the production data model and indexes. `convex/workspace.ts` contains organization-scoped queries and mutations. Every stored business record carries a stable external ID and an organization ID.
 
 Data-access principles:
 
-- scope every query to an organization;
-- validate all writes on the server;
-- use transactions for multi-record workflows;
+- scope every query and mutation to an organization;
+- validate browser input at the same-origin API boundary and Convex function boundary;
+- keep the Convex server credential out of browser bundles;
+- use atomic Convex mutations for multi-record workflows;
 - use stable identifiers for relationships;
 - store money as integer paisha;
 - archive business records instead of immediately deleting them; and
-- write audit events with important mutations.
+- write activity events with important mutations.
 
-## API
+## API and backend boundary
 
-The current `/api/records` endpoint supports task-status changes, lead-stage changes, and quick creation of tasks, leads, and content ideas.
+The `/api/workspace` gateway supports workspace reads, task-status changes, lead-stage changes, and quick creation of tasks, leads, and content ideas. It is intentionally the only browser-facing data boundary in the current release.
 
-This compact endpoint is acceptable for the first release. As complete workflows are implemented, separate route handlers by resource or bounded workflow, for example:
+Convex functions require a server-only credential. The browser never receives that credential or calls protected Convex functions directly. This keeps the existing no-application-login experience while preventing the Convex deployment URL from becoming an unauthenticated data API.
 
-```text
-/api/tasks
-/api/tasks/:id
-/api/leads/:id/stage
-/api/leads/:id/convert
-/api/projects/:id/milestones
-/api/imports/spreadsheet
-```
-
-Do not split routes without also introducing clear validation, authorization, and shared service functions.
+As workflows expand, split the same-origin API by resource or bounded workflow only when it improves validation and ownership. Keep all browser routes thin and place business transactions in Convex mutations.
 
 ## Identity and access
 
-There is currently no application-owned login. The hosted Site remains protected by its Sites access policy, while local development uses a shared workspace actor.
+There is currently no application-owned login. The hosted Site uses its Sites access policy, while the application gateway uses a server credential to reach Convex.
 
-Before storing sensitive client or financial data, implement an approved identity and role model. Authorization must be enforced server-side on every read and write. UI visibility is not an authorization boundary.
+Before storing sensitive client or financial data, implement an approved member identity and role model. Authorization must be enforced inside Convex functions in addition to any visible interface restrictions. A shared server credential is backend authentication, not user-level authorization.
 
 ## Activity and audit history
 
-`activity_events` currently stores a short actor/action/entity record. The target design should add structured action type, before/after summary or change metadata, request source, and stable actor identity. Audit events should be append-only for normal application use.
+`activityEvents` currently stores a short actor/action/entity record. The target design should add a stable actor identity, structured action type, before/after summary or change metadata, request source, and correlation ID. Audit events should be append-only for normal application use.
 
 ## Browser agent tools
 
-The dashboard registers read-only WebMCP tools for retrieving a workspace summary and opening a workspace view. Future tools must share the same services and permission checks as the visible interface. Tool names must accurately communicate whether an operation reads, prepares, or commits a change.
+The dashboard registers read-only WebMCP tools for retrieving a workspace summary and opening a workspace view. Future tools must share the same gateway, business rules, and permission checks as the visible interface.
 
 ## Deployment
 
-GitHub is the collaboration source. The live Site is published separately through OpenAI Sites. Merging `main` is not equivalent to production deployment.
+GitHub is the collaboration source. The live web application is published through OpenAI Sites, while backend functions and schema are deployed through Convex.
 
 Release sequence:
 
 1. merge an approved pull request;
-2. review migrations and access implications;
-3. build the exact merged commit;
-4. save and publish a Site version;
-5. verify terminal deployment success; and
-6. record any migration or release notes.
+2. deploy and verify compatible Convex functions and schema;
+3. run and reconcile any required data migration;
+4. build the exact merged web commit;
+5. save and publish a Site version with the production Convex environment configuration;
+6. verify the Site deployment reaches terminal success; and
+7. record migration and release notes.
 
 ## Target architecture direction
-
-As the product grows, introduce these boundaries gradually:
 
 ```text
 app/                  Routes, layouts, route handlers
 components/           Shared visual and interaction components
-features/<domain>/    Domain-specific UI, validation, and actions
-lib/auth/             Identity and authorization
-lib/services/         Multi-record business workflows
-lib/repositories/     Organization-scoped persistence
-db/                   Schema and database client
-drizzle/              Immutable migrations
+features/<domain>/    Domain-specific UI and validation
+lib/                   Server gateway and shared utilities
+convex/                Schema, queries, mutations, actions, workflows
 tests/                 Business, API, and critical-flow tests
 ```
 
@@ -108,11 +106,9 @@ Avoid a large rewrite. Move code behind these boundaries as features require it.
 
 ## Architectural decisions still required
 
-- final identity provider and role enforcement approach;
-- attachment/object-storage strategy;
+- final identity provider and per-member role enforcement;
+- attachment and file-storage strategy;
 - spreadsheet import format and idempotency key;
-- optimistic concurrency mechanism;
 - notification delivery channels;
-- backup frequency and restore objectives; and
+- production backup and restore objectives; and
 - whether future multi-workspace support is justified.
-

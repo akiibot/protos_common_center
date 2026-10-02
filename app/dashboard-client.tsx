@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   BadgeDollarSign, Bell, BookOpen, BriefcaseBusiness, CalendarDays,
   CheckCircle2, ChevronRight, CircleAlert, CircleDot, Command,
@@ -41,23 +41,35 @@ declare global {
   }
 }
 
-export function DashboardClient({ initial, user }: { initial: WorkspaceSnapshot; user: { name: string; email: string } }) {
-  const [data, setData] = useState(initial); const [view, setView] = useState<View>("dashboard");
+export function DashboardClient({ user }: { user: { name: string; email: string } }) {
+  const [data, setData] = useState<WorkspaceSnapshot | null>(null);
+  const [view, setView] = useState<View>("dashboard");
   const [mobileNav, setMobileNav] = useState(false); const [quickOpen, setQuickOpen] = useState(false);
   const [recordType, setRecordType] = useState("task"); const [recordTitle, setRecordTitle] = useState("");
   const [recordOwner, setRecordOwner] = useState("Akib"); const [search, setSearch] = useState("");
-  const openTasks = data.tasks.filter((task) => task.status !== "Done");
-  const activeLeads = data.leads.filter((lead) => !["Won", "Lost"].includes(lead.stage));
-  const pipeline = activeLeads.reduce((sum, lead) => sum + lead.estimatedValue, 0);
-  const attention = [
-    ...data.tasks.filter((task) => task.status === "Blocked").map((task) => ({ title: task.title, meta: "Blocked · needs resolution", tone: "danger" })),
-    ...data.leads.filter((lead) => lead.nextActionDate && lead.nextActionDate <= "2026-10-04").map((lead) => ({ title: lead.business, meta: `${lead.nextAction} · due now`, tone: "gold" })),
-  ];
-  const currentLabel = nav.find((item) => item.id === view)?.label ?? "Command";
-  const filteredTasks = data.tasks.filter((item) => item.title.toLowerCase().includes(search.toLowerCase()));
-  const filteredLeads = data.leads.filter((item) => item.business.toLowerCase().includes(search.toLowerCase()));
+
+  const loadWorkspace = useCallback(async (quiet = false) => {
+    try {
+      const response = await fetch("/api/workspace", { cache: "no-store" });
+      if (!response.ok) throw new Error("workspace unavailable");
+      setData(await response.json() as WorkspaceSnapshot);
+    } catch (error) {
+      console.error("workspace load failed", error);
+      if (!quiet) toast.error("The workspace could not be loaded");
+    }
+  }, []);
 
   useEffect(() => {
+    const initialLoad = window.setTimeout(() => void loadWorkspace(), 0);
+    const refresh = window.setInterval(() => void loadWorkspace(true), 15_000);
+    return () => {
+      window.clearTimeout(initialLoad);
+      window.clearInterval(refresh);
+    };
+  }, [loadWorkspace]);
+
+  useEffect(() => {
+    if (!data) return;
     const context = document.modelContext;
     if (!context?.registerTool) return;
     const lifecycle = new AbortController();
@@ -95,28 +107,56 @@ export function DashboardClient({ initial, user }: { initial: WorkspaceSnapshot;
     return () => lifecycle.abort();
   }, [data]);
 
-  async function mutate(payload: Record<string, string>) {
-    const response = await fetch("/api/records", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
-    if (!response.ok) throw new Error("save failed");
+  if (!data) {
+    return (
+      <main className="signin-shell">
+        <section className="signin-card">
+          <div className="brand-mark brand-mark-large">P</div>
+          <p className="eyebrow">Protos Common Center</p>
+          <h1>Preparing your workspace.</h1>
+          <p className="signin-copy">Connecting to the shared company workspace…</p>
+        </section>
+      </main>
+    );
   }
+
+  const openTasks = data.tasks.filter((task) => task.status !== "Done");
+  const activeLeads = data.leads.filter((lead) => !["Won", "Lost"].includes(lead.stage));
+  const pipeline = activeLeads.reduce((sum, lead) => sum + lead.estimatedValue, 0);
+  const attention = [
+    ...data.tasks.filter((task) => task.status === "Blocked").map((task) => ({ title: task.title, meta: "Blocked · needs resolution", tone: "danger" })),
+    ...data.leads.filter((lead) => lead.nextActionDate && lead.nextActionDate <= "2026-10-04").map((lead) => ({ title: lead.business, meta: `${lead.nextAction} · due now`, tone: "gold" })),
+  ];
+  const currentLabel = nav.find((item) => item.id === view)?.label ?? "Command";
+  const filteredTasks = data.tasks.filter((item) => item.title.toLowerCase().includes(search.toLowerCase()));
+  const filteredLeads = data.leads.filter((item) => item.business.toLowerCase().includes(search.toLowerCase()));
+
+  async function mutate(payload: Record<string, string>) {
+    const response = await fetch("/api/workspace", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) throw new Error("save failed");
+    return response.json() as Promise<{ ok: true; id?: string }>;
+  }
+
   async function changeTaskStatus(task: Task, status: string) {
-    const previous = data.tasks; setData((current) => ({ ...current, tasks: current.tasks.map((item) => item.id === task.id ? { ...item, status } : item) }));
-    try { await mutate({ action: "task-status", id: task.id, status }); toast.success(`Task moved to ${status}`); }
-    catch { setData((current) => ({ ...current, tasks: previous })); toast.error("The task could not be updated"); }
+    const previous = data.tasks; setData((current) => current ? ({ ...current, tasks: current.tasks.map((item) => item.id === task.id ? { ...item, status } : item) }) : current);
+    try { await mutate({ action: "task-status", id: task.id, status }); await loadWorkspace(true); toast.success(`Task moved to ${status}`); }
+    catch { setData((current) => current ? ({ ...current, tasks: previous }) : current); toast.error("The task could not be updated"); }
   }
   async function changeLeadStage(lead: Lead, stage: string) {
-    const previous = data.leads; setData((current) => ({ ...current, leads: current.leads.map((item) => item.id === lead.id ? { ...item, stage } : item) }));
-    try { await mutate({ action: "lead-stage", id: lead.id, stage }); toast.success(`${lead.business} moved to ${stage}`); }
-    catch { setData((current) => ({ ...current, leads: previous })); toast.error("The lead could not be updated"); }
+    const previous = data.leads; setData((current) => current ? ({ ...current, leads: current.leads.map((item) => item.id === lead.id ? { ...item, stage } : item) }) : current);
+    try { await mutate({ action: "lead-stage", id: lead.id, stage }); await loadWorkspace(true); toast.success(`${lead.business} moved to ${stage}`); }
+    catch { setData((current) => current ? ({ ...current, leads: previous }) : current); toast.error("The lead could not be updated"); }
   }
   async function createQuickRecord() {
     if (!recordTitle.trim()) return;
     try {
-      const response = await fetch("/api/records", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "create", type: recordType, title: recordTitle.trim(), owner: recordOwner }) });
-      if (!response.ok) throw new Error("save failed"); const result = await response.json() as { id: string };
-      if (recordType === "task") setData((current) => ({ ...current, tasks: [...current.tasks, { id: result.id, projectId: null, title: recordTitle.trim(), owner: recordOwner, priority: "Medium", status: "Ready", dueDate: null, context: "General" }] }));
-      if (recordType === "lead") setData((current) => ({ ...current, leads: [...current.leads, { id: result.id, business: recordTitle.trim(), contact: "To be confirmed", stage: "Identified", owner: recordOwner, source: "Direct", estimatedValue: 0, nextAction: "Define next action", nextActionDate: null, lastTouch: null }] }));
-      if (recordType === "content") setData((current) => ({ ...current, content: [...current.content, { id: result.id, title: recordTitle.trim(), platform: "Facebook", format: "Post", pillar: "Build in public", owner: recordOwner, status: "Idea", publishDate: null }] }));
+      if (!["task", "lead", "content"].includes(recordType)) throw new Error("unsupported record type");
+      await mutate({ action: "create", type: recordType, title: recordTitle.trim(), owner: recordOwner });
+      await loadWorkspace(true);
       setQuickOpen(false); setRecordTitle(""); toast.success("New record created");
     } catch { toast.error("The record could not be created"); }
   }
