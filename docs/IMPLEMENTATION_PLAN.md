@@ -25,6 +25,8 @@ Do not start automation before the related records and manual workflows are depe
 
 ## Epic A — Access, identity, and authorization
 
+Execution plan: [Phase 1 Implementation Plan: Team Access, Identity, and Authorization](PHASE_1_ACCESS_IMPLEMENTATION_PLAN.md)
+
 ### Outcome
 
 Seven team members can use the system with appropriate permissions, and every important mutation has a trustworthy actor.

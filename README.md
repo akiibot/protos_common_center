@@ -23,6 +23,7 @@ The current release is an operational foundation, not the finished system. Sever
 | Understand the product and company context | [Product vision](docs/PRODUCT_VISION.md) |
 | See what comes next | [Roadmap](ROADMAP.md) |
 | Choose an implementation task | [Implementation plan](docs/IMPLEMENTATION_PLAN.md) and [GitHub Issues](https://github.com/akiibot/protos_common_center/issues) |
+| Implement secure team access | [Phase 1 access implementation plan](docs/PHASE_1_ACCESS_IMPLEMENTATION_PLAN.md) |
 | Understand the codebase | [Architecture](docs/ARCHITECTURE.md) |
 | Understand records and relationships | [Data model](docs/DATA_MODEL.md) |
 | Run the application locally | [Development setup](docs/DEVELOPMENT_SETUP.md) |
