@@ -1,0 +1,9 @@
+export type Task = { id: string; projectId: string | null; title: string; owner: string; priority: string; status: string; dueDate: string | null; context: string };
+export type Lead = { id: string; business: string; contact: string; stage: string; owner: string; source: string; estimatedValue: number; nextAction: string; nextActionDate: string | null; lastTouch: string | null };
+export type Project = { id: string; name: string; client: string; lead: string; stage: string; health: string; progress: number; value: number; dueDate: string | null; nextMilestone: string };
+export type Goal = { id: string; title: string; owner: string; status: string; progress: number; target: string; signal: string };
+export type Member = { id: string; name: string; role: string; discipline: string; initials: string; color: string; openTasks: number };
+export type ContentItem = { id: string; title: string; platform: string; format: string; pillar: string; owner: string; status: string; publishDate: string | null };
+export type FinanceEntry = { id: string; kind: string; label: string; category: string; amount: number; status: string; dueDate: string | null };
+export type Activity = { id: string; actor: string; action: string; entityType: string; entityId: string; createdAt: string };
+export type WorkspaceSnapshot = { tasks: Task[]; leads: Lead[]; projects: Project[]; goals: Goal[]; members: Member[]; content: ContentItem[]; finance: FinanceEntry[]; activity: Activity[] };
