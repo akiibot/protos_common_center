@@ -27,6 +27,10 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (process.env.DEPLOYMENT_READ_ONLY === "true") {
+    return NextResponse.json({ error: "This preview is read-only" }, { status: 403 });
+  }
+
   const parsed = requestSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid workspace change" }, { status: 400 });
 

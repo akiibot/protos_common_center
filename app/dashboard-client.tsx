@@ -142,12 +142,12 @@ export function DashboardClient({ user }: { user: { name: string; email: string 
   }
 
   async function changeTaskStatus(task: Task, status: string) {
-    const previous = data.tasks; setData((current) => current ? ({ ...current, tasks: current.tasks.map((item) => item.id === task.id ? { ...item, status } : item) }) : current);
+    const previous = data?.tasks ?? []; setData((current) => current ? ({ ...current, tasks: current.tasks.map((item) => item.id === task.id ? { ...item, status } : item) }) : current);
     try { await mutate({ action: "task-status", id: task.id, status }); await loadWorkspace(true); toast.success(`Task moved to ${status}`); }
     catch { setData((current) => current ? ({ ...current, tasks: previous }) : current); toast.error("The task could not be updated"); }
   }
   async function changeLeadStage(lead: Lead, stage: string) {
-    const previous = data.leads; setData((current) => current ? ({ ...current, leads: current.leads.map((item) => item.id === lead.id ? { ...item, stage } : item) }) : current);
+    const previous = data?.leads ?? []; setData((current) => current ? ({ ...current, leads: current.leads.map((item) => item.id === lead.id ? { ...item, stage } : item) }) : current);
     try { await mutate({ action: "lead-stage", id: lead.id, stage }); await loadWorkspace(true); toast.success(`${lead.business} moved to ${stage}`); }
     catch { setData((current) => current ? ({ ...current, leads: previous }) : current); toast.error("The lead could not be updated"); }
   }

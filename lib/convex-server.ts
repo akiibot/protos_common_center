@@ -4,7 +4,7 @@ import { api } from "@/convex/_generated/api";
 const organizationId = "org_protos";
 
 function getClient() {
-  const url = process.env.CONVEX_URL;
+  const url = process.env.NEXT_PUBLIC_CONVEX_URL ?? process.env.CONVEX_URL;
   const apiSecret = process.env.CONVEX_SERVER_SECRET;
   if (!url || !apiSecret) throw new Error("Convex server configuration is unavailable");
   return { client: new ConvexHttpClient(url), apiSecret };
