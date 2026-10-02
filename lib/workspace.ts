@@ -1,12 +1,12 @@
 import { desc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { activityEvents, contentItems, financeEntries, goals, leads, members, organizations, projects, tasks } from "@/db/schema";
-import type { ChatGPTUser } from "@/app/chatgpt-auth";
 import type { WorkspaceSnapshot } from "@/lib/types";
 
 const ORG_ID = "org_protos";
+type WorkspaceActor = { userId: string; displayName: string; email: string };
 
-export async function getWorkspaceSnapshot(user: ChatGPTUser): Promise<WorkspaceSnapshot> {
+export async function getWorkspaceSnapshot(user: WorkspaceActor): Promise<WorkspaceSnapshot> {
   const db = getDb();
   await seedWorkspace(user);
   const [taskRows, leadRows, projectRows, goalRows, memberRows, contentRows, financeRows, activityRows] = await Promise.all([
@@ -19,7 +19,7 @@ export async function getWorkspaceSnapshot(user: ChatGPTUser): Promise<Workspace
   return { tasks: taskRows, leads: leadRows, projects: projectRows, goals: goalRows, members: memberRows, content: contentRows, finance: financeRows, activity: activityRows };
 }
 
-async function seedWorkspace(user: ChatGPTUser) {
+async function seedWorkspace(user: WorkspaceActor) {
   const db = getDb();
   await db.insert(organizations).values({ id: ORG_ID, name: "Protos", slug: "protos" }).onConflictDoNothing();
   await db.insert(members).values([
