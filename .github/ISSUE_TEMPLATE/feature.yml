@@ -1,0 +1,73 @@
+name: Feature or improvement
+description: Propose a buildable product change with clear acceptance criteria.
+title: "[Feature]: "
+labels:
+  - feature
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: User outcome
+      description: What should a Protos team member be able to accomplish?
+      placeholder: A team member can...
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context and problem
+      description: Why is this needed now, and what is the current workaround?
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: In scope
+      description: List the required behaviors and records.
+      placeholder: |
+        - Behavior one
+        - Behavior two
+    validations:
+      required: true
+  - type: textarea
+    id: exclusions
+    attributes:
+      label: Out of scope
+      description: State nearby work that this issue should not include.
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      placeholder: |
+        - [ ] Expected result one
+        - [ ] Expected result two
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Product area
+      options:
+        - Platform and security
+        - Data import
+        - Tasks
+        - Sales and clients
+        - Projects
+        - Content
+        - Finance
+        - Team
+        - Knowledge
+        - Reporting and automation
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies or decisions
+      description: Link related issues or list unresolved decisions.
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification notes
+      description: Describe the tests or manual checks this work should include.
+

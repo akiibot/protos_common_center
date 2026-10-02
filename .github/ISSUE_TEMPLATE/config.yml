@@ -1,0 +1,6 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Sensitive security report
+    url: https://github.com/akiibot/protos_common_center/security
+    about: Do not disclose vulnerabilities or private data in a public issue.
+
