@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as lib_accessPolicy from "../lib/accessPolicy.js";
+import type * as lib_auth from "../lib/auth.js";
 import type * as seedData from "../seedData.js";
 import type * as workspace from "../workspace.js";
 
@@ -18,6 +20,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "lib/accessPolicy": typeof lib_accessPolicy;
+  "lib/auth": typeof lib_auth;
   seedData: typeof seedData;
   workspace: typeof workspace;
 }>;
