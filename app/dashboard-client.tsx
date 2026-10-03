@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { UserButton } from "@clerk/nextjs";
 import { useConvexAuth } from "convex/react";
+import Link from "next/link";
 import {
   BadgeDollarSign, Bell, BookOpen, BriefcaseBusiness, CalendarDays,
   CheckCircle2, ChevronRight, CircleAlert, CircleDot, Command,
@@ -48,6 +49,7 @@ export function DashboardClient({ user }: { user: { name: string; email: string 
   const [access, setAccess] = useState<{ memberId: string; accessRole: AccessRole } | null>(null);
   const [memberships, setMemberships] = useState<MembershipSummary[]>([]);
   const [accessDenied, setAccessDenied] = useState(false);
+  const [mfaRequired, setMfaRequired] = useState(false);
   const [data, setData] = useState<WorkspaceSnapshot | null>(null);
   const [view, setView] = useState<View>("dashboard");
   const [mobileNav, setMobileNav] = useState(false); const [quickOpen, setQuickOpen] = useState(false);
@@ -67,18 +69,22 @@ export function DashboardClient({ user }: { user: { name: string; email: string 
   }, []);
 
   useEffect(() => {
-    if (authenticationLoading || !isAuthenticated || access || accessDenied) return;
+    if (authenticationLoading || !isAuthenticated || access || accessDenied || mfaRequired) return;
     void fetch("/api/access", { method: "POST" })
       .then(async (response) => {
+        if (response.status === 428) {
+          setMfaRequired(true);
+          return null;
+        }
         if (!response.ok) throw new Error("Workspace access was denied");
         return response.json() as Promise<{ memberId: string; accessRole: AccessRole }>;
       })
-      .then((currentAccess) => setAccess(currentAccess))
+      .then((currentAccess) => { if (currentAccess) setAccess(currentAccess); })
       .catch((error) => {
         console.error("workspace access provisioning failed", error);
         setAccessDenied(true);
       });
-  }, [access, accessDenied, authenticationLoading, isAuthenticated]);
+  }, [access, accessDenied, authenticationLoading, isAuthenticated, mfaRequired]);
 
   const canManageMemberships = access?.accessRole === "owner" || access?.accessRole === "admin";
   const canCreateRecords = access?.accessRole !== "viewer";
@@ -149,6 +155,20 @@ export function DashboardClient({ user }: { user: { name: string; email: string 
     void register().catch((error) => console.warn("WebMCP registration unavailable", error));
     return () => lifecycle.abort();
   }, [data]);
+
+  if (mfaRequired) {
+    return (
+      <main className="signin-shell">
+        <section className="signin-card">
+          <div className="brand-mark brand-mark-large">P</div>
+          <p className="eyebrow">Security requirement</p>
+          <h1>Protect your account.</h1>
+          <p className="signin-copy">Owners and administrators must enable two-step verification before accessing the workspace.</p>
+          <Link className="signin-button" href="/security">Set up two-step verification</Link>
+        </section>
+      </main>
+    );
+  }
 
   if (accessDenied) {
     return (

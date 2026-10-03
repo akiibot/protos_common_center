@@ -17,6 +17,12 @@ export async function POST() {
 
   try {
     const access = await ensureCurrentUser(token, verifiedEmail);
+    if ((access.accessRole === "owner" || access.accessRole === "admin") && !user.twoFactorEnabled) {
+      return NextResponse.json(
+        { error: "Two-step verification is required", mfaRequired: true, setupUrl: "/security", requestId },
+        { status: 428, headers: { "cache-control": "private, no-store", "x-request-id": requestId } },
+      );
+    }
     return NextResponse.json(access, { headers: { "cache-control": "private, no-store", "x-request-id": requestId } });
   } catch (error) {
     console.error("workspace access provisioning failed", requestId, error);

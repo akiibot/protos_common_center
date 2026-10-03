@@ -61,7 +61,8 @@ export async function POST(request: Request) {
       await updateLeadStage(session.token, parsed.data.id, parsed.data.stage);
       return NextResponse.json({ ok: true, requestId }, { headers: { "x-request-id": requestId } });
     }
-    const id = await createRecord(session.token, parsed.data);
+    const { type, title, owner } = parsed.data;
+    const id = await createRecord(session.token, { type, title, owner });
     return NextResponse.json({ ok: true, id, requestId }, { headers: { "x-request-id": requestId } });
   } catch (error) {
     console.error("workspace mutation failed", requestId, error);

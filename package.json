@@ -14,7 +14,9 @@
     "build:vercel": "next build --webpack",
     "start:vercel": "next start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern convex/_generated",
-    "test:auth": "node --experimental-strip-types --test convex/lib/accessPolicy.test.ts lib/api-errors.test.ts",
+    "test:auth": "node --experimental-strip-types --test tests/accessPolicy.test.ts lib/api-errors.test.ts",
+    "test:roles": "node scripts/run-role-canary.mjs",
+    "test:browser": "node scripts/run-browser-canary.mjs",
     "convex:dev": "convex dev",
     "convex:deploy": "convex deploy"
   },
@@ -48,6 +50,7 @@
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",
     "@cloudflare/workers-types": "4.20260515.1",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
