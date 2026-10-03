@@ -15,7 +15,11 @@ Current checkpoint:
 - Vercel Preview uses Clerk Development plus Convex Development, remains read-only, and is additionally protected by Vercel SSO.
 - The hosted Owner canary passed: application access provisioning, membership administration reads, and workspace reads all returned HTTP 200 without runtime errors.
 - Production configuration and deployment remain unchanged and read-only.
-- Automated policy and API error-mapping tests are active; integration and browser coverage remain open.
+- Automated policy, API error-mapping, live role-integration, and critical browser canaries are active; full production-domain smoke testing remains open.
+- Live synthetic role canaries now cover Owner, Admin, Manager, Member, and Viewer with real Clerk-issued Convex tokens; browser canaries cover ticket sign-in, viewer UI/data restrictions, forbidden writes, Admin MFA, and non-member denial.
+- Synthetic test identities and records are removed after every run, and the test-only backend switch is disabled outside the bounded test window.
+- A verified Convex Production snapshot and checksum are recorded in the release runbook.
+- Production activation remains gated on a Protos-owned custom domain, Clerk Production DNS/OAuth configuration, Owner MFA enrollment, and acceptance by the six invited teammates.
 
 Owners: product owner and implementation lead
 
