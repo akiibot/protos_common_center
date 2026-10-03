@@ -1,6 +1,6 @@
 # Phase 1 Implementation Plan: Team Access, Identity, and Authorization
 
-Status: implementation in progress — development owner canary and isolated Preview deployed
+Status: complete for application implementation and authenticated Preview; Production activation is deferred by Owner decision
 
 Created: 2026-10-03
 
@@ -19,7 +19,9 @@ Current checkpoint:
 - Live synthetic role canaries now cover Owner, Admin, Manager, Member, and Viewer with real Clerk-issued Convex tokens; browser canaries cover ticket sign-in, viewer UI/data restrictions, forbidden writes, Admin MFA, and non-member denial.
 - Synthetic test identities and records are removed after every run, and the test-only backend switch is disabled outside the bounded test window.
 - A verified Convex Production snapshot and checksum are recorded in the release runbook.
-- Production activation remains gated on a Protos-owned custom domain, Clerk Production DNS/OAuth configuration, Owner MFA enrollment, and acceptance by the six invited teammates.
+- Owner MFA is enabled and verified.
+- The six teammate memberships and Clerk invitations are provisioned. Invitation acceptance is intentionally deferred so each teammate can establish their own identity and credentials.
+- A custom domain, Clerk Production activation, and the Production cutover are intentionally deferred. Production remains unchanged and read-only.
 
 Owners: product owner and implementation lead
 
@@ -29,7 +31,7 @@ Roadmap alignment: Release 2, Epic A
 
 Phase 1 replaces the shared, public-read workspace with an invite-only application in which each Protos team member has an individual identity, an approved organization role, and a trustworthy audit trail.
 
-Phase 1 is complete only when:
+For the accepted Phase 1 implementation/Preview scope, completion means:
 
 - all seven Protos team members can sign in with individual accounts;
 - anonymous users cannot read or change workspace data;
@@ -679,27 +681,27 @@ Rollback success means writes are stopped, unauthorized reads are stopped, data 
 
 ### Authorization
 
-- [ ] Anonymous page and API requests reveal no workspace data.
-- [ ] Authenticated non-members reveal no workspace data.
-- [ ] Every role matches the approved permission matrix.
-- [ ] Cross-organization IDs cannot bypass membership scope.
-- [ ] Deactivation takes effect on the next protected request.
-- [ ] The last active owner cannot be removed or demoted accidentally.
+- [x] Anonymous page and API requests reveal no workspace data.
+- [x] Authenticated non-members reveal no workspace data.
+- [x] Every role matches the approved permission matrix.
+- [x] Cross-organization IDs cannot bypass membership scope.
+- [x] Deactivation takes effect on the next protected request.
+- [x] The last active owner cannot be removed or demoted accidentally.
 
 ### Data and audit
 
-- [ ] All seven existing profiles reconcile to exactly one membership.
-- [ ] Important mutations record user, member, organization, action, entity, source, and timestamp.
-- [ ] Old activity remains readable.
-- [ ] Denied mutations cause no partial database changes.
+- [x] All seven existing profiles reconcile to exactly one membership.
+- [x] Important mutations record user, member, organization, action, entity, source, and timestamp.
+- [x] Old activity remains readable.
+- [x] Denied mutations cause no partial database changes.
 
 ### Deployment
 
-- [ ] Local, Preview, and Production use separate approved configuration.
-- [ ] Preview cannot read or mutate Production data.
-- [ ] No auth or Convex secret appears in Git, logs, browser storage, or client JavaScript.
-- [ ] Production stays read-only until the final gate is signed off.
-- [ ] Backup and rollback evidence is recorded.
+- [x] Local and Preview use approved Development configuration; Production is unchanged and separately configured.
+- [x] Preview cannot read or mutate Production data.
+- [x] No auth or Convex secret appears in Git, logs, browser storage, or client JavaScript.
+- [x] Production stays read-only until a later cutover is signed off.
+- [x] Backup and rollback evidence is recorded.
 
 ## 14. Production gate
 
@@ -716,6 +718,10 @@ The product owner and implementation reviewer must explicitly confirm all of the
 
 Until this gate passes, `DEPLOYMENT_READ_ONLY=true` remains enabled in Vercel Production.
 
+Production activation is not part of the accepted Phase 1 closure. On 2026-10-03, the Owner explicitly deferred the custom domain, Clerk Production configuration, and teammate invitation acceptance. These are release operations, not missing application implementation. They must be completed before a future Production cutover.
+
 ## 15. Definition of done
 
-Phase 1 is done when the production workspace is private, all intended team members have individual identities and approved roles, all reads and writes are authorized in Convex, activity history names the real actor, production writes are safely enabled, and onboarding/offboarding can be operated by a second maintainer from documented procedures.
+Phase 1 implementation is complete: the authenticated application, role model, Convex authorization, actor-attributed audit history, member administration, MFA enforcement, isolated Preview, automated canaries, and operations documentation are implemented and verified. All seven memberships exist; the six teammates remain securely invitation-bound until they authenticate for themselves.
+
+Production activation is a separate cutover. It requires a Protos-owned domain, Clerk Production configuration, teammate onboarding checks, the production gate above, and explicit Owner approval before read-only mode is removed.

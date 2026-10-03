@@ -1,15 +1,22 @@
 # Phase 1 Release and Rollback Runbook
 
-## Preconditions
+## Phase 1 implementation closure
 
 - All automated policy, role-canary, browser-canary, lint, and production-build checks pass.
 - Seven real member profiles reconcile to seven memberships and no synthetic memberships remain.
-- Owner and Admin accounts have MFA.
+- The active Owner account has MFA; any Admin must enroll MFA before privileged application access.
 - Vercel Preview points only to Convex Development and Clerk Development.
 - A production Convex snapshot has been exported and its checksum recorded.
+- Production remains `DEPLOYMENT_READ_ONLY=true` until the write canary is approved.
+
+The implementation and authenticated Preview were accepted as Phase 1 complete on 2026-10-03. The Owner deferred teammate invitation acceptance, a custom domain, Clerk Production configuration, and Production activation. The seven application memberships already exist; six teammate identities remain invitation-bound until each person signs in themselves.
+
+## Future Production cutover preconditions
+
 - A custom production domain owned by Protos is connected to Vercel and available for Clerk Production DNS records.
 - Clerk Production is configured with production OAuth credentials and invite-only registration.
-- Production remains `DEPLOYMENT_READ_ONLY=true` until the write canary is approved.
+- Intended privileged users have accepted their invitations and enrolled MFA.
+- The Owner explicitly approves the cutover window.
 
 ## Staged release
 
@@ -42,4 +49,3 @@
 - Convex Production deployment: `little-toucan-807`
 - Local archive: `/Users/yeanul/Documents/ChatGPT/Protos/backups/protos-production-pre-phase1-2026-10-03.zip`
 - SHA-256: `638afbefa833354155d3ae6f4156e8f3f3531f5421bf2bb6231eda76c91b71ed`
-

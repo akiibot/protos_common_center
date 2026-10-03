@@ -15,8 +15,8 @@ Deploy Protos Common Center to Vercel without interrupting the current OpenAI Si
 
 ## Current Preview checkpoint
 
-- Deployment: <https://protos-common-center-qwhqjl7y8-akiiibots-projects.vercel.app>
-- Vercel deployment ID: `dpl_8CjaDR3n2NvaTeKy5bdZ2L7q1ksW`
+- Deployment: <https://protos-common-center-ofogi0d3j-akiiibots-projects.vercel.app>
+- Vercel deployment ID: `dpl_ASsoZQL7QixvktTqkA4t6eUzxs36`
 - Preview uses the Clerk Development instance and Convex Development deployment.
 - Preview has its own matching `WORKSPACE_API_SECRET`; the legacy `CONVEX_SERVER_SECRET` has been removed from Preview.
 - `DEPLOYMENT_READ_ONLY=true` remains enforced in Preview.
