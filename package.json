@@ -14,7 +14,7 @@
     "build:vercel": "next build --webpack",
     "start:vercel": "next start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern convex/_generated",
-    "test:auth": "node --experimental-strip-types --test convex/lib/accessPolicy.test.ts",
+    "test:auth": "node --experimental-strip-types --test convex/lib/accessPolicy.test.ts lib/api-errors.test.ts",
     "convex:dev": "convex dev",
     "convex:deploy": "convex deploy"
   },

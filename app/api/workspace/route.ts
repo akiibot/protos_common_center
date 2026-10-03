@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { createRecord, getWorkspaceSnapshot, updateLeadStage, updateTaskStatus } from "@/lib/convex-server";
+import { apiError, createRequestId, statusForError } from "@/lib/api-errors";
 
 export const dynamic = "force-dynamic";
 
@@ -25,43 +26,45 @@ async function getAuthenticatedSession() {
 }
 
 export async function GET() {
+  const requestId = createRequestId();
   const session = await getAuthenticatedSession();
-  if (!session) return NextResponse.json({ error: "Authentication is required" }, { status: 401 });
+  if (!session) return apiError("Authentication is required", 401, requestId);
 
   try {
     const snapshot = await getWorkspaceSnapshot(session.token);
-    if (!snapshot) return NextResponse.json({ error: "Workspace not initialized" }, { status: 503 });
-    return NextResponse.json(snapshot, { headers: { "cache-control": "no-store" } });
+    if (!snapshot) return apiError("Workspace not initialized", 503, requestId);
+    return NextResponse.json(snapshot, { headers: { "cache-control": "private, no-store", "x-request-id": requestId } });
   } catch (error) {
-    console.error("workspace load failed", error);
-    return NextResponse.json({ error: "Could not load the workspace" }, { status: 500 });
+    console.error("workspace load failed", requestId, error);
+    return apiError("Could not load the workspace", statusForError(error), requestId);
   }
 }
 
 export async function POST(request: Request) {
+  const requestId = createRequestId();
   const session = await getAuthenticatedSession();
-  if (!session) return NextResponse.json({ error: "Authentication is required" }, { status: 401 });
+  if (!session) return apiError("Authentication is required", 401, requestId);
 
   if (process.env.DEPLOYMENT_READ_ONLY === "true") {
-    return NextResponse.json({ error: "This deployment is read-only" }, { status: 403 });
+    return apiError("This deployment is read-only", 403, requestId);
   }
 
   const parsed = requestSchema.safeParse(await request.json());
-  if (!parsed.success) return NextResponse.json({ error: "Invalid workspace change" }, { status: 400 });
+  if (!parsed.success) return apiError("Invalid workspace change", 422, requestId);
 
   try {
     if (parsed.data.action === "task-status") {
       await updateTaskStatus(session.token, parsed.data.id, parsed.data.status);
-      return NextResponse.json({ ok: true });
+      return NextResponse.json({ ok: true, requestId }, { headers: { "x-request-id": requestId } });
     }
     if (parsed.data.action === "lead-stage") {
       await updateLeadStage(session.token, parsed.data.id, parsed.data.stage);
-      return NextResponse.json({ ok: true });
+      return NextResponse.json({ ok: true, requestId }, { headers: { "x-request-id": requestId } });
     }
     const id = await createRecord(session.token, parsed.data);
-    return NextResponse.json({ ok: true, id });
+    return NextResponse.json({ ok: true, id, requestId }, { headers: { "x-request-id": requestId } });
   } catch (error) {
-    console.error("workspace mutation failed", error);
-    return NextResponse.json({ error: "Could not save this change" }, { status: 500 });
+    console.error("workspace mutation failed", requestId, error);
+    return apiError("Could not save this change", statusForError(error), requestId);
   }
 }
