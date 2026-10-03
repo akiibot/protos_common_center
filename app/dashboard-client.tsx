@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { Lead, Task, WorkspaceSnapshot } from "@/lib/types";
+import type { AccessRole, Lead, MembershipSummary, Task, WorkspaceSnapshot } from "@/lib/types";
 
 type View = "dashboard" | "roadmap" | "sales" | "clients" | "projects" | "tasks" | "content" | "finance" | "team" | "knowledge";
 const nav: Array<{ id: View; label: string; icon: typeof LayoutDashboard }> = [
@@ -45,7 +45,8 @@ declare global {
 
 export function DashboardClient({ user }: { user: { name: string; email: string } }) {
   const { isAuthenticated, isLoading: authenticationLoading } = useConvexAuth();
-  const [access, setAccess] = useState<{ memberId: string; accessRole: string } | null>(null);
+  const [access, setAccess] = useState<{ memberId: string; accessRole: AccessRole } | null>(null);
+  const [memberships, setMemberships] = useState<MembershipSummary[]>([]);
   const [accessDenied, setAccessDenied] = useState(false);
   const [data, setData] = useState<WorkspaceSnapshot | null>(null);
   const [view, setView] = useState<View>("dashboard");
@@ -70,7 +71,7 @@ export function DashboardClient({ user }: { user: { name: string; email: string 
     void fetch("/api/access", { method: "POST" })
       .then(async (response) => {
         if (!response.ok) throw new Error("Workspace access was denied");
-        return response.json() as Promise<{ memberId: string; accessRole: string }>;
+        return response.json() as Promise<{ memberId: string; accessRole: AccessRole }>;
       })
       .then((currentAccess) => setAccess(currentAccess))
       .catch((error) => {
@@ -78,6 +79,19 @@ export function DashboardClient({ user }: { user: { name: string; email: string 
         setAccessDenied(true);
       });
   }, [access, accessDenied, authenticationLoading, isAuthenticated]);
+
+  const canManageMemberships = access?.accessRole === "owner" || access?.accessRole === "admin";
+  const canCreateRecords = access?.accessRole !== "viewer";
+  const canManageAnyOperationalRecord = ["owner", "admin", "manager"].includes(access?.accessRole ?? "viewer");
+  const canReadFinance = ["owner", "admin", "manager"].includes(access?.accessRole ?? "viewer");
+
+  const loadMemberships = useCallback(async () => {
+    if (!canManageMemberships) return;
+    const response = await fetch("/api/memberships", { cache: "no-store" });
+    if (!response.ok) throw new Error("Memberships unavailable");
+    const payload = await response.json() as { memberships: MembershipSummary[] };
+    setMemberships(payload.memberships);
+  }, [canManageMemberships]);
 
   useEffect(() => {
     if (!access) return;
@@ -88,6 +102,14 @@ export function DashboardClient({ user }: { user: { name: string; email: string 
       window.clearInterval(refresh);
     };
   }, [access, loadWorkspace]);
+
+  useEffect(() => {
+    if (!canManageMemberships) return;
+    const initialLoad = window.setTimeout(() => {
+      void loadMemberships().catch((error) => console.error("membership load failed", error));
+    }, 0);
+    return () => window.clearTimeout(initialLoad);
+  }, [canManageMemberships, loadMemberships]);
 
   useEffect(() => {
     if (!data) return;
@@ -165,6 +187,7 @@ export function DashboardClient({ user }: { user: { name: string; email: string 
   const currentLabel = nav.find((item) => item.id === view)?.label ?? "Command";
   const filteredTasks = data.tasks.filter((item) => item.title.toLowerCase().includes(search.toLowerCase()));
   const filteredLeads = data.leads.filter((item) => item.business.toLowerCase().includes(search.toLowerCase()));
+  const assignableMembers = canManageAnyOperationalRecord ? data.members : data.members.filter((member) => member.id === access.memberId);
 
   async function mutate(payload: Record<string, string>) {
     const response = await fetch("/api/workspace", {
@@ -198,22 +221,24 @@ export function DashboardClient({ user }: { user: { name: string; email: string 
 
   const views: Record<View, React.ReactNode> = {
     dashboard: <CommandView data={data} openTasks={openTasks} activeLeads={activeLeads} pipeline={pipeline} attention={attention} onView={setView} />,
-    roadmap: <RoadmapView data={data} />, sales: <SalesView leads={filteredLeads} onStage={changeLeadStage} />,
-    clients: <ClientsView />, projects: <ProjectsView data={data} />, tasks: <TasksView tasks={filteredTasks} onStatus={changeTaskStatus} />,
-    content: <ContentView data={data} />, finance: <FinanceView data={data} />, team: <TeamView data={data} />, knowledge: <KnowledgeView />,
+    roadmap: <RoadmapView data={data} />, sales: <SalesView leads={filteredLeads} onStage={changeLeadStage} canEdit={(lead) => canManageAnyOperationalRecord || lead.owner === defaultRecordOwner} />,
+    clients: <ClientsView />, projects: <ProjectsView data={data} />, tasks: <TasksView tasks={filteredTasks} onStatus={changeTaskStatus} canEdit={(task) => canManageAnyOperationalRecord || task.owner === defaultRecordOwner} />,
+    content: <ContentView data={data} />, finance: <FinanceView data={data} />,
+    team: <TeamView data={data} memberships={memberships} accessRole={access.accessRole} onMembershipChanged={loadMemberships} />,
+    knowledge: <KnowledgeView />,
   };
   return <div className="app-shell">
     <aside className={`sidebar ${mobileNav ? "sidebar-open" : ""}`}>
       <div className="sidebar-brand"><div className="brand-mark">P</div><div><strong>Protos</strong><span>Common Center</span></div><button className="mobile-close" onClick={() => setMobileNav(false)} aria-label="Close navigation"><X /></button></div>
-      <nav aria-label="Main navigation"><p className="nav-label">Operate</p>{nav.slice(0, 6).map((item) => <NavItem key={item.id} item={item} active={view === item.id} onClick={() => { setView(item.id); setMobileNav(false); }} />)}<p className="nav-label nav-label-spaced">Company</p>{nav.slice(6).map((item) => <NavItem key={item.id} item={item} active={view === item.id} onClick={() => { setView(item.id); setMobileNav(false); }} />)}</nav>
+      <nav aria-label="Main navigation"><p className="nav-label">Operate</p>{nav.slice(0, 6).map((item) => <NavItem key={item.id} item={item} active={view === item.id} onClick={() => { setView(item.id); setMobileNav(false); }} />)}<p className="nav-label nav-label-spaced">Company</p>{nav.slice(6).filter((item) => item.id !== "finance" || canReadFinance).map((item) => <NavItem key={item.id} item={item} active={view === item.id} onClick={() => { setView(item.id); setMobileNav(false); }} />)}</nav>
       <div className="phase-card"><div className="phase-top"><span>Phase 1</span><strong>36%</strong></div><Progress value={36} /><p>Foundation · BDT 50K target</p></div>
-      <div className="profile-chip"><UserButton /><div><strong>{shortName(user.name)}</strong><span>Protos workspace</span></div></div>
+      <div className="profile-chip"><UserButton /><div><strong>{shortName(user.name)}</strong><span>{access.accessRole} · {data.members.find((member) => member.id === access.memberId)?.role ?? "Protos team"}</span></div></div>
     </aside>
     <main className="main-area">
-      <header className="topbar"><button className="menu-button" onClick={() => setMobileNav(true)} aria-label="Open navigation"><Menu /></button><div><p className="breadcrumb">Protos / {currentLabel}</p><h1>{currentLabel}</h1></div><div className="topbar-actions"><label className="searchbox"><Search /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search workspace" /><kbd>⌘ K</kbd></label><button className="icon-button" aria-label="Notifications"><Bell /><span className="notification-dot" /></button><Button onClick={() => setQuickOpen(true)} className="quick-button"><Plus />Create</Button></div></header>
+      <header className="topbar"><button className="menu-button" onClick={() => setMobileNav(true)} aria-label="Open navigation"><Menu /></button><div><p className="breadcrumb">Protos / {currentLabel}</p><h1>{currentLabel}</h1></div><div className="topbar-actions"><label className="searchbox"><Search /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search workspace" /><kbd>⌘ K</kbd></label><button className="icon-button" aria-label="Notifications"><Bell /><span className="notification-dot" /></button>{canCreateRecords && <Button onClick={() => setQuickOpen(true)} className="quick-button"><Plus />Create</Button>}</div></header>
       <section className="workspace">{views[view]}</section>
     </main>
-    <Dialog open={quickOpen} onOpenChange={setQuickOpen}><DialogContent className="quick-dialog"><DialogHeader><DialogTitle>Create a record</DialogTitle><DialogDescription>Add a task, lead, or content idea without leaving your current view.</DialogDescription></DialogHeader><div className="dialog-fields"><label><span>Type</span><Select value={recordType} onValueChange={setRecordType}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="task">Task</SelectItem><SelectItem value="lead">Lead</SelectItem><SelectItem value="content">Content idea</SelectItem></SelectContent></Select></label><label><span>Name</span><Input value={recordTitle} onChange={(event) => setRecordTitle(event.target.value)} placeholder={recordType === "lead" ? "Business name" : "Clear, actionable title"} /></label><label><span>Owner</span><Select value={recordOwner || defaultRecordOwner} onValueChange={setRecordOwner}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent>{data.members.map((member) => <SelectItem value={member.name} key={member.id}>{member.name}</SelectItem>)}</SelectContent></Select></label></div><DialogFooter><Button variant="outline" onClick={() => setQuickOpen(false)}>Cancel</Button><Button onClick={createQuickRecord} disabled={!recordTitle.trim()}>Create record</Button></DialogFooter></DialogContent></Dialog>
+    <Dialog open={quickOpen} onOpenChange={setQuickOpen}><DialogContent className="quick-dialog"><DialogHeader><DialogTitle>Create a record</DialogTitle><DialogDescription>Add a task, lead, or content idea without leaving your current view.</DialogDescription></DialogHeader><div className="dialog-fields"><label><span>Type</span><Select value={recordType} onValueChange={setRecordType}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="task">Task</SelectItem><SelectItem value="lead">Lead</SelectItem><SelectItem value="content">Content idea</SelectItem></SelectContent></Select></label><label><span>Name</span><Input value={recordTitle} onChange={(event) => setRecordTitle(event.target.value)} placeholder={recordType === "lead" ? "Business name" : "Clear, actionable title"} /></label><label><span>Owner</span><Select value={recordOwner || defaultRecordOwner} onValueChange={setRecordOwner}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent>{assignableMembers.map((member) => <SelectItem value={member.name} key={member.id}>{member.name}</SelectItem>)}</SelectContent></Select></label></div><DialogFooter><Button variant="outline" onClick={() => setQuickOpen(false)}>Cancel</Button><Button onClick={createQuickRecord} disabled={!recordTitle.trim()}>Create record</Button></DialogFooter></DialogContent></Dialog>
     <Toaster richColors position="bottom-right" />
   </div>;
 }
@@ -232,13 +257,85 @@ function CommandView({ data, openTasks, activeLeads, pipeline, attention, onView
 }
 
 function RoadmapView({ data }: { data: WorkspaceSnapshot }) { return <PageFrame eyebrow="Company direction" title="Phase 1 · The Foundation" description="Connect every strategic target to owners, projects and measurable outcomes."><div className="roadmap-list">{data.goals.map((goal, index) => <article className="roadmap-card" key={goal.id}><span className="roadmap-number">0{index + 1}</span><div className="roadmap-copy"><div className="row-between"><span className={`health health-${goal.signal}`}>{goal.signal.replace("-", " ")}</span><strong>{goal.progress}%</strong></div><h3>{goal.title}</h3><p>{goal.target}</p><Progress value={goal.progress} /><footer><span>Owner · {goal.owner}</span><span>{goal.status}</span></footer></div></article>)}</div></PageFrame>; }
-function SalesView({ leads, onStage }: { leads: Lead[]; onStage: (lead: Lead, stage: string) => void }) { return <PageFrame eyebrow="Revenue engine" title="Sales pipeline" description="Every active opportunity needs an owner, a clear next action and a date."><div className="pipeline-board">{leadStages.slice(0, 6).map((stage) => { const stageLeads = leads.filter((lead) => lead.stage === stage); return <section className="pipeline-column" key={stage}><header><span>{stage}</span><b>{stageLeads.length}</b></header><p className="column-value">{money(stageLeads.reduce((sum, lead) => sum + lead.estimatedValue, 0))}</p>{stageLeads.map((lead) => <article className="lead-card" key={lead.id}><div className="row-between"><span className="lead-source">{lead.source}</span><span className="mini-avatar">{initials(lead.owner)}</span></div><h3>{lead.business}</h3><p>{lead.nextAction}</p><div className="lead-value">{money(lead.estimatedValue)}</div><Select value={lead.stage} onValueChange={(value) => onStage(lead, value)}><SelectTrigger size="sm" className="w-full"><SelectValue /></SelectTrigger><SelectContent>{leadStages.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent></Select></article>)}</section>; })}</div></PageFrame>; }
+function SalesView({ leads, onStage, canEdit }: { leads: Lead[]; onStage: (lead: Lead, stage: string) => void; canEdit: (lead: Lead) => boolean }) { return <PageFrame eyebrow="Revenue engine" title="Sales pipeline" description="Every active opportunity needs an owner, a clear next action and a date."><div className="pipeline-board">{leadStages.slice(0, 6).map((stage) => { const stageLeads = leads.filter((lead) => lead.stage === stage); return <section className="pipeline-column" key={stage}><header><span>{stage}</span><b>{stageLeads.length}</b></header><p className="column-value">{money(stageLeads.reduce((sum, lead) => sum + lead.estimatedValue, 0))}</p>{stageLeads.map((lead) => <article className="lead-card" key={lead.id}><div className="row-between"><span className="lead-source">{lead.source}</span><span className="mini-avatar">{initials(lead.owner)}</span></div><h3>{lead.business}</h3><p>{lead.nextAction}</p><div className="lead-value">{money(lead.estimatedValue)}</div><Select value={lead.stage} disabled={!canEdit(lead)} onValueChange={(value) => onStage(lead, value)}><SelectTrigger size="sm" className="w-full"><SelectValue /></SelectTrigger><SelectContent>{leadStages.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent></Select></article>)}</section>; })}</div></PageFrame>; }
 function ClientsView() { return <PageFrame eyebrow="Relationships" title="Clients" description="Client context, delivery, money and communication stay in one record."><div className="empty-client"><BriefcaseBusiness /><div><h3>No signed clients yet</h3><p>When an opportunity is marked Won, Common Center will create the client and project without duplicate entry.</p><Button variant="outline">Review conversion checklist</Button></div></div><h3 className="section-heading">Conversion preview</h3><div className="conversion-flow"><span>Won lead</span><ChevronRight /><span>Client</span><ChevronRight /><span>Project</span><ChevronRight /><span>Advance invoice</span><ChevronRight /><span>Onboarding</span></div></PageFrame>; }
 function ProjectsView({ data }: { data: WorkspaceSnapshot }) { return <PageFrame eyebrow="Delivery" title="Projects" description="Track scope, milestones, health and financial context together."><div className="project-grid">{data.projects.map((project) => <article className="project-card" key={project.id}><header><span className={`health health-${slug(project.health)}`}>{project.health}</span><span>{project.stage}</span></header><h3>{project.name}</h3><p>{project.client}</p><div className="project-meta"><span><small>Lead</small>{project.lead}</span><span><small>Due</small>{formatDate(project.dueDate)}</span><span><small>Value</small>{project.value ? money(project.value) : "Internal"}</span></div><div className="project-progress"><div className="row-between"><span>Progress</span><strong>{project.progress}%</strong></div><Progress value={project.progress} /></div><footer><CircleDot />Next: {project.nextMilestone}</footer></article>)}</div></PageFrame>; }
-function TasksView({ tasks, onStatus }: { tasks: Task[]; onStatus: (task: Task, status: string) => void }) { return <PageFrame eyebrow="Execution" title="My work" description="One accountable owner, one current state and one next commitment."><div className="table-shell"><table><thead><tr><th>Task</th><th>Owner</th><th>Context</th><th>Priority</th><th>Due</th><th>Status</th></tr></thead><tbody>{tasks.map((task) => <tr key={task.id}><td><strong>{task.title}</strong></td><td>{task.owner}</td><td>{task.context}</td><td><span className={`priority priority-${task.priority.toLowerCase()}`}>{task.priority}</span></td><td>{formatDate(task.dueDate)}</td><td><Select value={task.status} onValueChange={(value) => onStatus(task, value)}><SelectTrigger size="sm"><SelectValue /></SelectTrigger><SelectContent>{taskStatuses.map((status) => <SelectItem value={status} key={status}>{status}</SelectItem>)}</SelectContent></Select></td></tr>)}</tbody></table></div></PageFrame>; }
+function TasksView({ tasks, onStatus, canEdit }: { tasks: Task[]; onStatus: (task: Task, status: string) => void; canEdit: (task: Task) => boolean }) { return <PageFrame eyebrow="Execution" title="My work" description="One accountable owner, one current state and one next commitment."><div className="table-shell"><table><thead><tr><th>Task</th><th>Owner</th><th>Context</th><th>Priority</th><th>Due</th><th>Status</th></tr></thead><tbody>{tasks.map((task) => <tr key={task.id}><td><strong>{task.title}</strong></td><td>{task.owner}</td><td>{task.context}</td><td><span className={`priority priority-${task.priority.toLowerCase()}`}>{task.priority}</span></td><td>{formatDate(task.dueDate)}</td><td><Select value={task.status} disabled={!canEdit(task)} onValueChange={(value) => onStatus(task, value)}><SelectTrigger size="sm"><SelectValue /></SelectTrigger><SelectContent>{taskStatuses.map((status) => <SelectItem value={status} key={status}>{status}</SelectItem>)}</SelectContent></Select></td></tr>)}</tbody></table></div></PageFrame>; }
 function ContentView({ data }: { data: WorkspaceSnapshot }) { const statuses = ["Idea", "Drafting", "In Review", "Ready", "Scheduled", "Published"]; return <PageFrame eyebrow="Build in public" title="Content studio" description="Turn company work into useful stories for a Bangladeshi business audience."><div className="content-board">{statuses.map((status) => <section key={status}><header>{status}<b>{data.content.filter((item) => item.status === status).length}</b></header>{data.content.filter((item) => item.status === status).map((item) => <article key={item.id}><span>{item.pillar}</span><h3>{item.title}</h3><p>{item.platform} · {item.format}</p><footer><span className="mini-avatar">{initials(item.owner)}</span><time>{formatDate(item.publishDate)}</time></footer></article>)}</section>)}</div></PageFrame>; }
 function FinanceView({ data }: { data: WorkspaceSnapshot }) { const invoiced = data.finance.filter((item) => item.kind === "invoice").reduce((sum, item) => sum + item.amount, 0); const expenses = data.finance.filter((item) => item.kind === "expense").reduce((sum, item) => sum + item.amount, 0); return <PageFrame eyebrow="Financial control" title="Finance" description="Separate committed revenue, invoiced revenue and cash actually received."><div className="finance-summary"><Metric label="Cash received" value="BDT 0" detail="No payments recorded" tone="ink" /><Metric label="Outstanding" value={money(invoiced)} detail="1 invoice open" tone="gold" /><Metric label="Monthly expenses" value={money(expenses)} detail="Replace planned zeros with actuals" tone="plain" /><Metric label="Project margin" value="—" detail="Available after cost entries" tone="teal" /></div><section className="panel finance-panel"><PanelHeader eyebrow="Ledger" title="Current commitments" /><div className="finance-rows">{data.finance.map((entry) => <div key={entry.id}><span className={`finance-icon ${entry.kind}`}><BadgeDollarSign /></span><div><strong>{entry.label}</strong><small>{entry.category} · due {formatDate(entry.dueDate)}</small></div><span className={`health health-${slug(entry.status)}`}>{entry.status}</span><b>{money(entry.amount)}</b></div>)}</div></section></PageFrame>; }
-function TeamView({ data }: { data: WorkspaceSnapshot }) { return <PageFrame eyebrow="People" title="Team and capacity" description="Plan around skills, ownership and real availability—not surveillance."><div className="team-grid">{data.members.map((member) => <article key={member.id}><span className="avatar avatar-large" style={{ background: member.color }}>{member.initials}</span><h3>{member.name}</h3><p>{member.role}</p><small>{member.discipline}</small><footer><span>{member.openTasks} open tasks</span><button>View work</button></footer></article>)}</div></PageFrame>; }
+function TeamView({ data, memberships, accessRole, onMembershipChanged }: { data: WorkspaceSnapshot; memberships: MembershipSummary[]; accessRole: AccessRole; onMembershipChanged: () => Promise<void> }) {
+  const canManage = accessRole === "owner" || accessRole === "admin";
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  async function changeMembership(payload: Record<string, string>, successMessage: string) {
+    setSavingId(payload.membershipId);
+    try {
+      const response = await fetch("/api/memberships", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? "Membership change failed");
+      await onMembershipChanged();
+      toast.success(successMessage);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Membership change failed");
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  return <PageFrame eyebrow="People" title="Team and access" description="Manage capacity, individual access, and company responsibilities in one place.">
+    {canManage && <section className="panel access-panel">
+      <PanelHeader eyebrow="Security" title="Workspace access" />
+      <div className="access-list">
+        {memberships.map((membership) => <article key={membership.id} className="access-row">
+          <div className="access-person"><span className="mini-avatar">{initials(membership.name)}</span><div><strong>{membership.name}{membership.isCurrentUser ? " · You" : ""}</strong><small>{membership.jobTitle} · {membership.email}</small></div></div>
+          <span className={`membership-status status-${membership.status}`}>{membership.status}</span>
+          <Select
+            value={membership.accessRole}
+            disabled={savingId === membership.id || membership.accessRole === "owner"}
+            onValueChange={(value) => void changeMembership({ action: "change-role", membershipId: membership.id, accessRole: value }, `Role changed to ${value}`)}
+          >
+            <SelectTrigger size="sm"><SelectValue /></SelectTrigger>
+            <SelectContent><SelectItem value="admin">Admin</SelectItem><SelectItem value="manager">Manager</SelectItem><SelectItem value="member">Member</SelectItem><SelectItem value="viewer">Viewer</SelectItem></SelectContent>
+          </Select>
+          <div className="access-actions">
+            {membership.status === "invited" && <><Button
+              size="sm"
+              variant="outline"
+              disabled={savingId === membership.id}
+              onClick={() => void changeMembership({ action: "resend-invitation", membershipId: membership.id }, "Invitation resent")}
+            >Resend</Button><Button
+              size="sm"
+              variant="ghost"
+              disabled={savingId === membership.id}
+              onClick={() => void changeMembership({ action: "cancel-invitation", membershipId: membership.id }, "Invitation cancelled")}
+            >Cancel</Button></>}
+            {membership.accessRole !== "owner" && membership.status !== "invited" && <Button
+              size="sm"
+              variant="outline"
+              disabled={savingId === membership.id || membership.isCurrentUser}
+              onClick={() => void changeMembership({ action: "change-status", membershipId: membership.id, status: membership.status === "active" ? "deactivated" : "active" }, membership.status === "active" ? "Access deactivated" : "Access reactivated")}
+            >{membership.status === "active" ? "Deactivate" : "Reactivate"}</Button>}
+            {accessRole === "owner" && membership.accessRole !== "owner" && membership.status === "active" && <Button
+              size="sm"
+              variant="ghost"
+              disabled={savingId === membership.id}
+              onClick={() => {
+                if (window.confirm(`Transfer ownership to ${membership.name}? Your account will become an Admin.`)) {
+                  void changeMembership({ action: "transfer-ownership", membershipId: membership.id }, "Ownership transferred");
+                }
+              }}
+            >Make owner</Button>}
+          </div>
+        </article>)}
+      </div>
+    </section>}
+    <div className="team-grid">{data.members.map((member) => <article key={member.id}><span className="avatar avatar-large" style={{ background: member.color }}>{member.initials}</span><h3>{member.name}</h3><p>{member.role}</p><small>{member.discipline}</small><footer><span>{member.openTasks} open tasks</span><button>View work</button></footer></article>)}</div>
+  </PageFrame>;
+}
 function KnowledgeView() { const docs = [{ t: "Client agreement template", c: "Operations", s: "Needs review" }, { t: "Warm outreach playbook", c: "Sales", s: "Current" }, { t: "Protos brand foundations", c: "Brand", s: "Current" }, { t: "Project delivery checklist", c: "Delivery", s: "Draft" }]; return <PageFrame eyebrow="Company memory" title="Knowledge" description="Keep operating procedures, decisions and reusable templates close to the work."><div className="knowledge-grid">{docs.map((doc) => <article key={doc.t}><FileText /><div><span>{doc.c}</span><h3>{doc.t}</h3><p>{doc.s}</p></div><ChevronRight /></article>)}</div></PageFrame>; }
 function PageFrame({ eyebrow, title, description, children }: { eyebrow: string; title: string; description: string; children: React.ReactNode }) { return <><div className="page-intro"><p className="eyebrow">{eyebrow}</p><h2>{title}</h2><p>{description}</p></div>{children}</>; }
 function Metric({ label, value, detail, tone = "plain", onClick }: { label: string; value: string; detail: string; tone?: string; onClick?: () => void }) { return <button className={`metric-card metric-${tone}`} onClick={onClick}><span>{label}</span><strong>{value}</strong><small>{detail}</small>{onClick && <ChevronRight />}</button>; }

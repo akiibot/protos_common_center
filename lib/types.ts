@@ -7,3 +7,17 @@ export type ContentItem = { id: string; title: string; platform: string; format:
 export type FinanceEntry = { id: string; kind: string; label: string; category: string; amount: number; status: string; dueDate: string | null };
 export type Activity = { id: string; actor: string; action: string; entityType: string; entityId: string; createdAt: string };
 export type WorkspaceSnapshot = { tasks: Task[]; leads: Lead[]; projects: Project[]; goals: Goal[]; members: Member[]; content: ContentItem[]; finance: FinanceEntry[]; activity: Activity[] };
+export type AccessRole = "owner" | "admin" | "manager" | "member" | "viewer";
+export type MembershipStatus = "invited" | "active" | "deactivated";
+export type MembershipSummary = {
+  id: string;
+  memberId: string;
+  name: string;
+  jobTitle: string;
+  email: string;
+  accessRole: AccessRole;
+  status: MembershipStatus;
+  acceptedAt: string | null;
+  updatedAt: string;
+  isCurrentUser: boolean;
+};

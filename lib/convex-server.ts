@@ -19,6 +19,26 @@ export async function ensureCurrentUser(token: string, verifiedEmail: string) {
   return getClient(token).mutation(api.memberships.ensureCurrentUser, { apiSecret, verifiedEmail });
 }
 
+export async function listMemberships(token: string) {
+  return getClient(token).query(api.memberships.listMemberships, {});
+}
+
+export async function updateAccessRole(
+  token: string,
+  membershipId: string,
+  accessRole: "admin" | "manager" | "member" | "viewer",
+) {
+  return getClient(token).mutation(api.memberships.updateAccessRole, { membershipId, accessRole });
+}
+
+export async function updateMembershipStatus(token: string, membershipId: string, status: "active" | "deactivated") {
+  return getClient(token).mutation(api.memberships.updateMembershipStatus, { membershipId, status });
+}
+
+export async function transferOwnership(token: string, membershipId: string) {
+  return getClient(token).mutation(api.memberships.transferOwnership, { membershipId });
+}
+
 export async function updateTaskStatus(token: string, id: string, status: string) {
   return getClient(token).mutation(api.workspace.updateTaskStatus, { id, status });
 }
