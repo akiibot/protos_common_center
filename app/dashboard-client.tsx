@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { UserButton } from "@clerk/nextjs";
-import { useConvexAuth, useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { useConvexAuth } from "convex/react";
 import {
   BadgeDollarSign, Bell, BookOpen, BriefcaseBusiness, CalendarDays,
   CheckCircle2, ChevronRight, CircleAlert, CircleDot, Command,
@@ -46,7 +45,6 @@ declare global {
 
 export function DashboardClient({ user }: { user: { name: string; email: string } }) {
   const { isAuthenticated, isLoading: authenticationLoading } = useConvexAuth();
-  const ensureCurrentUser = useMutation(api.memberships.ensureCurrentUser);
   const [access, setAccess] = useState<{ memberId: string; accessRole: string } | null>(null);
   const [accessDenied, setAccessDenied] = useState(false);
   const [data, setData] = useState<WorkspaceSnapshot | null>(null);
@@ -69,13 +67,17 @@ export function DashboardClient({ user }: { user: { name: string; email: string 
 
   useEffect(() => {
     if (authenticationLoading || !isAuthenticated || access || accessDenied) return;
-    void ensureCurrentUser()
+    void fetch("/api/access", { method: "POST" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Workspace access was denied");
+        return response.json() as Promise<{ memberId: string; accessRole: string }>;
+      })
       .then((currentAccess) => setAccess(currentAccess))
       .catch((error) => {
         console.error("workspace access provisioning failed", error);
         setAccessDenied(true);
       });
-  }, [access, accessDenied, authenticationLoading, ensureCurrentUser, isAuthenticated]);
+  }, [access, accessDenied, authenticationLoading, isAuthenticated]);
 
   useEffect(() => {
     if (!access) return;

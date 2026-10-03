@@ -119,12 +119,13 @@ export const provisionInvitations = mutation({
 });
 
 export const ensureCurrentUser = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { apiSecret: v.string(), verifiedEmail: v.string() },
+  handler: async (ctx, { apiSecret, verifiedEmail }) => {
+    authorizeAdministration(apiSecret);
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Authentication is required" });
 
-    const email = identity.email ? normalizeEmail(identity.email) : null;
+    const email = normalizeEmail(verifiedEmail);
     if (!email) throw new ConvexError({ code: "VERIFIED_EMAIL_REQUIRED", message: "A verified email is required" });
 
     const now = new Date().toISOString();

@@ -13,6 +13,12 @@ export async function getWorkspaceSnapshot(token: string) {
   return getClient(token).query(api.workspace.getWorkspaceSnapshot, {});
 }
 
+export async function ensureCurrentUser(token: string, verifiedEmail: string) {
+  const apiSecret = process.env.WORKSPACE_API_SECRET;
+  if (!apiSecret) throw new Error("Workspace provisioning configuration is unavailable");
+  return getClient(token).mutation(api.memberships.ensureCurrentUser, { apiSecret, verifiedEmail });
+}
+
 export async function updateTaskStatus(token: string, id: string, status: string) {
   return getClient(token).mutation(api.workspace.updateTaskStatus, { id, status });
 }
