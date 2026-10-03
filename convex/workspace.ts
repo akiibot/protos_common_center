@@ -1,5 +1,8 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
+import { hasPermission, type Permission } from "./lib/accessPolicy";
+import { requireActiveMembership, requirePermission, type AuthorizationContext } from "./lib/auth";
 import { seedData } from "./seedData";
 
 function authorize(apiSecret: string) {
@@ -14,16 +17,68 @@ function withoutSystemFields<T extends { _id: unknown; _creationTime: number }>(
   return value;
 }
 
+async function getMemberName(ctx: MutationCtx, authorization: AuthorizationContext) {
+  const member = await ctx.db
+    .query("members")
+    .withIndex("by_external_id", (index) => index.eq("id", authorization.memberId))
+    .unique();
+  if (!member || member.organizationId !== authorization.organizationId) {
+    throw new ConvexError({ code: "MEMBER_NOT_FOUND", message: "Member profile not found" });
+  }
+  return member.name;
+}
+
+async function requireOwnedRecordOrAny(
+  ctx: MutationCtx,
+  ownerName: string,
+  anyPermission: Permission,
+  ownPermission: Permission,
+) {
+  const authorization = await requireActiveMembership(ctx);
+  if (hasPermission(authorization.accessRole, anyPermission)) return authorization;
+  const memberName = await getMemberName(ctx, authorization);
+  if (memberName === ownerName && hasPermission(authorization.accessRole, ownPermission)) return authorization;
+  throw new ConvexError({ code: "FORBIDDEN", message: "You do not have permission to change this record" });
+}
+
+function authenticatedActivity(
+  authorization: AuthorizationContext,
+  action: string,
+  actionType: string,
+  entityType: string,
+  entityId: string,
+) {
+  return {
+    id: crypto.randomUUID(),
+    organizationId: authorization.organizationId,
+    actor: authorization.displayName,
+    action,
+    entityType,
+    entityId,
+    createdAt: new Date().toISOString(),
+    actorUserId: authorization.userId,
+    actorMemberId: authorization.memberId,
+    actorDisplayNameSnapshot: authorization.displayName,
+    actionType,
+    source: "web" as const,
+  };
+}
+
 export const getWorkspaceSnapshot = query({
-  args: { organizationId: v.string(), apiSecret: v.string() },
-  handler: async (ctx, { organizationId, apiSecret }) => {
-    authorize(apiSecret);
+  args: {},
+  handler: async (ctx) => {
+    const authorization = await requirePermission(ctx, "workspace:read");
+    const { organizationId } = authorization;
     const organization = await ctx.db
       .query("organizations")
       .withIndex("by_external_id", (q) => q.eq("id", organizationId))
       .unique();
 
     if (!organization) return null;
+
+    const canReadFinance = hasPermission(authorization.accessRole, "finance:read");
+    const canReadAllAudit = hasPermission(authorization.accessRole, "audit:read:any");
+    const canReadOwnAudit = hasPermission(authorization.accessRole, "audit:read:own");
 
     const [tasks, leads, projects, goals, members, content, finance, activity] = await Promise.all([
       ctx.db.query("tasks").withIndex("by_organization_status", (q) => q.eq("organizationId", organizationId)).collect(),
@@ -32,9 +87,17 @@ export const getWorkspaceSnapshot = query({
       ctx.db.query("goals").withIndex("by_organization_status", (q) => q.eq("organizationId", organizationId)).collect(),
       ctx.db.query("members").withIndex("by_organization", (q) => q.eq("organizationId", organizationId)).collect(),
       ctx.db.query("contentItems").withIndex("by_organization_status", (q) => q.eq("organizationId", organizationId)).collect(),
-      ctx.db.query("financeEntries").withIndex("by_organization_kind", (q) => q.eq("organizationId", organizationId)).collect(),
-      ctx.db.query("activityEvents").withIndex("by_organization_created", (q) => q.eq("organizationId", organizationId)).order("desc").take(8),
+      canReadFinance
+        ? ctx.db.query("financeEntries").withIndex("by_organization_kind", (q) => q.eq("organizationId", organizationId)).collect()
+        : Promise.resolve([]),
+      canReadAllAudit || canReadOwnAudit
+        ? ctx.db.query("activityEvents").withIndex("by_organization_created", (q) => q.eq("organizationId", organizationId)).order("desc").take(40)
+        : Promise.resolve([]),
     ]);
+
+    const visibleActivity = canReadAllAudit
+      ? activity.slice(0, 8)
+      : activity.filter((event) => event.actorMemberId === authorization.memberId).slice(0, 8);
 
     return {
       tasks: tasks.map(withoutSystemFields),
@@ -44,7 +107,7 @@ export const getWorkspaceSnapshot = query({
       members: members.map(withoutSystemFields),
       content: content.map(withoutSystemFields),
       finance: finance.map(withoutSystemFields),
-      activity: activity.map(withoutSystemFields),
+      activity: visibleActivity.map(withoutSystemFields),
     };
   },
 });
@@ -75,76 +138,70 @@ export const seedWorkspace = mutation({
 
 export const updateTaskStatus = mutation({
   args: {
-    organizationId: v.string(),
     id: v.string(),
     status: v.string(),
-    actor: v.string(),
-    apiSecret: v.string(),
   },
   handler: async (ctx, args) => {
-    authorize(args.apiSecret);
     const task = await ctx.db.query("tasks").withIndex("by_external_id", (q) => q.eq("id", args.id)).unique();
-    if (!task || task.organizationId !== args.organizationId) throw new Error("Task not found");
+    if (!task) throw new ConvexError({ code: "NOT_FOUND", message: "Task not found" });
+    const authorization = await requireOwnedRecordOrAny(ctx, task.owner, "task:update:any", "task:update:own");
+    if (task.organizationId !== authorization.organizationId) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Task not found" });
+    }
 
     await ctx.db.patch(task._id, { status: args.status, updatedAt: new Date().toISOString() });
-    await ctx.db.insert("activityEvents", {
-      id: crypto.randomUUID(),
-      organizationId: args.organizationId,
-      actor: args.actor,
-      action: `moved a task to ${args.status}`,
-      entityType: "task",
-      entityId: args.id,
-      createdAt: new Date().toISOString(),
-    });
+    await ctx.db.insert(
+      "activityEvents",
+      authenticatedActivity(authorization, `moved a task to ${args.status}`, "task.status_changed", "task", args.id),
+    );
   },
 });
 
 export const updateLeadStage = mutation({
   args: {
-    organizationId: v.string(),
     id: v.string(),
     stage: v.string(),
-    actor: v.string(),
-    apiSecret: v.string(),
   },
   handler: async (ctx, args) => {
-    authorize(args.apiSecret);
     const lead = await ctx.db.query("leads").withIndex("by_external_id", (q) => q.eq("id", args.id)).unique();
-    if (!lead || lead.organizationId !== args.organizationId) throw new Error("Lead not found");
+    if (!lead) throw new ConvexError({ code: "NOT_FOUND", message: "Lead not found" });
+    const authorization = await requireOwnedRecordOrAny(ctx, lead.owner, "lead:update:any", "lead:update:own");
+    if (lead.organizationId !== authorization.organizationId) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Lead not found" });
+    }
 
     await ctx.db.patch(lead._id, { stage: args.stage });
-    await ctx.db.insert("activityEvents", {
-      id: crypto.randomUUID(),
-      organizationId: args.organizationId,
-      actor: args.actor,
-      action: `moved a lead to ${args.stage}`,
-      entityType: "lead",
-      entityId: args.id,
-      createdAt: new Date().toISOString(),
-    });
+    await ctx.db.insert(
+      "activityEvents",
+      authenticatedActivity(authorization, `moved a lead to ${args.stage}`, "lead.stage_changed", "lead", args.id),
+    );
   },
 });
 
 export const createRecord = mutation({
   args: {
-    organizationId: v.string(),
     type: v.union(v.literal("task"), v.literal("lead"), v.literal("content")),
     title: v.string(),
     owner: v.string(),
-    actor: v.string(),
-    apiSecret: v.string(),
   },
   handler: async (ctx, args) => {
-    authorize(args.apiSecret);
-    const organization = await ctx.db.query("organizations").withIndex("by_external_id", (q) => q.eq("id", args.organizationId)).unique();
+    const createPermission = `${args.type}:create` as "task:create" | "lead:create" | "content:create";
+    const authorization = await requirePermission(ctx, createPermission);
+    const organization = await ctx.db.query("organizations").withIndex("by_external_id", (q) => q.eq("id", authorization.organizationId)).unique();
     if (!organization) throw new Error("Organization not found");
+
+    const memberName = await getMemberName(ctx, authorization);
+    const anyUpdatePermission = `${args.type}:update:any` as "task:update:any" | "lead:update:any" | "content:update:any";
+    if (args.owner !== memberName && !hasPermission(authorization.accessRole, anyUpdatePermission)) {
+      throw new ConvexError({ code: "FORBIDDEN", message: "You cannot assign this record to another member" });
+    }
 
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     if (args.type === "task") {
       await ctx.db.insert("tasks", {
         id,
-        organizationId: args.organizationId,
+        organizationId: authorization.organizationId,
         projectId: null,
         title: args.title,
         owner: args.owner,
@@ -158,7 +215,7 @@ export const createRecord = mutation({
     } else if (args.type === "lead") {
       await ctx.db.insert("leads", {
         id,
-        organizationId: args.organizationId,
+        organizationId: authorization.organizationId,
         business: args.title,
         contact: "To be confirmed",
         stage: "Identified",
@@ -173,7 +230,7 @@ export const createRecord = mutation({
     } else {
       await ctx.db.insert("contentItems", {
         id,
-        organizationId: args.organizationId,
+        organizationId: authorization.organizationId,
         title: args.title,
         platform: "Facebook",
         format: "Post",
@@ -185,15 +242,10 @@ export const createRecord = mutation({
       });
     }
 
-    await ctx.db.insert("activityEvents", {
-      id: crypto.randomUUID(),
-      organizationId: args.organizationId,
-      actor: args.actor,
-      action: `created ${args.type}: ${args.title}`,
-      entityType: args.type,
-      entityId: id,
-      createdAt: now,
-    });
+    await ctx.db.insert(
+      "activityEvents",
+      authenticatedActivity(authorization, `created ${args.type}: ${args.title}`, `${args.type}.created`, args.type, id),
+    );
     return id;
   },
 });

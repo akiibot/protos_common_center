@@ -56,6 +56,7 @@ export default defineSchema({
   })
     .index("by_external_id", ["id"])
     .index("by_organization", ["organizationId"])
+    .index("by_organization_member", ["organizationId", "memberId"])
     .index("by_user", ["userId"])
     .index("by_organization_user", ["organizationId", "userId"])
     .index("by_organization_invited_email", ["organizationId", "invitedEmailNormalized"]),

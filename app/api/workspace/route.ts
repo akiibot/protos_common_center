@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { createRecord, getWorkspaceSnapshot, updateLeadStage, updateTaskStatus } from "@/lib/convex-server";
 
@@ -16,23 +16,20 @@ const requestSchema = z.discriminatedUnion("action", [
   }),
 ]);
 
-async function getAuthenticatedActor() {
-  const { userId } = await auth();
+async function getAuthenticatedSession() {
+  const { getToken, sessionClaims, userId } = await auth();
   if (!userId) return null;
 
-  const user = await currentUser();
-  return {
-    userId,
-    name: user?.fullName ?? user?.firstName ?? user?.primaryEmailAddress?.emailAddress ?? userId,
-  };
+  const token = sessionClaims?.aud === "convex" ? await getToken() : await getToken({ template: "convex" });
+  return token ? { token } : null;
 }
 
 export async function GET() {
-  const actor = await getAuthenticatedActor();
-  if (!actor) return NextResponse.json({ error: "Authentication is required" }, { status: 401 });
+  const session = await getAuthenticatedSession();
+  if (!session) return NextResponse.json({ error: "Authentication is required" }, { status: 401 });
 
   try {
-    const snapshot = await getWorkspaceSnapshot();
+    const snapshot = await getWorkspaceSnapshot(session.token);
     if (!snapshot) return NextResponse.json({ error: "Workspace not initialized" }, { status: 503 });
     return NextResponse.json(snapshot, { headers: { "cache-control": "no-store" } });
   } catch (error) {
@@ -42,8 +39,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const authenticatedActor = await getAuthenticatedActor();
-  if (!authenticatedActor) return NextResponse.json({ error: "Authentication is required" }, { status: 401 });
+  const session = await getAuthenticatedSession();
+  if (!session) return NextResponse.json({ error: "Authentication is required" }, { status: 401 });
 
   if (process.env.DEPLOYMENT_READ_ONLY === "true") {
     return NextResponse.json({ error: "This deployment is read-only" }, { status: 403 });
@@ -52,17 +49,16 @@ export async function POST(request: Request) {
   const parsed = requestSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid workspace change" }, { status: 400 });
 
-  const actor = authenticatedActor.name;
   try {
     if (parsed.data.action === "task-status") {
-      await updateTaskStatus(parsed.data.id, parsed.data.status, actor);
+      await updateTaskStatus(session.token, parsed.data.id, parsed.data.status);
       return NextResponse.json({ ok: true });
     }
     if (parsed.data.action === "lead-stage") {
-      await updateLeadStage(parsed.data.id, parsed.data.stage, actor);
+      await updateLeadStage(session.token, parsed.data.id, parsed.data.stage);
       return NextResponse.json({ ok: true });
     }
-    const id = await createRecord(parsed.data, actor);
+    const id = await createRecord(session.token, parsed.data);
     return NextResponse.json({ ok: true, id });
   } catch (error) {
     console.error("workspace mutation failed", error);

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { UserButton } from "@clerk/nextjs";
+import { useConvexAuth, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import {
   BadgeDollarSign, Bell, BookOpen, BriefcaseBusiness, CalendarDays,
   CheckCircle2, ChevronRight, CircleAlert, CircleDot, Command,
@@ -43,11 +45,16 @@ declare global {
 }
 
 export function DashboardClient({ user }: { user: { name: string; email: string } }) {
+  const { isAuthenticated, isLoading: authenticationLoading } = useConvexAuth();
+  const ensureCurrentUser = useMutation(api.memberships.ensureCurrentUser);
+  const [access, setAccess] = useState<{ memberId: string; accessRole: string } | null>(null);
+  const [accessDenied, setAccessDenied] = useState(false);
   const [data, setData] = useState<WorkspaceSnapshot | null>(null);
   const [view, setView] = useState<View>("dashboard");
   const [mobileNav, setMobileNav] = useState(false); const [quickOpen, setQuickOpen] = useState(false);
   const [recordType, setRecordType] = useState("task"); const [recordTitle, setRecordTitle] = useState("");
-  const [recordOwner, setRecordOwner] = useState("Akib"); const [search, setSearch] = useState("");
+  const [recordOwner, setRecordOwner] = useState(""); const [search, setSearch] = useState("");
+  const defaultRecordOwner = data?.members.find((member) => member.id === access?.memberId)?.name ?? "";
 
   const loadWorkspace = useCallback(async (quiet = false) => {
     try {
@@ -61,13 +68,24 @@ export function DashboardClient({ user }: { user: { name: string; email: string 
   }, []);
 
   useEffect(() => {
+    if (authenticationLoading || !isAuthenticated || access || accessDenied) return;
+    void ensureCurrentUser()
+      .then((currentAccess) => setAccess(currentAccess))
+      .catch((error) => {
+        console.error("workspace access provisioning failed", error);
+        setAccessDenied(true);
+      });
+  }, [access, accessDenied, authenticationLoading, ensureCurrentUser, isAuthenticated]);
+
+  useEffect(() => {
+    if (!access) return;
     const initialLoad = window.setTimeout(() => void loadWorkspace(), 0);
     const refresh = window.setInterval(() => void loadWorkspace(true), 15_000);
     return () => {
       window.clearTimeout(initialLoad);
       window.clearInterval(refresh);
     };
-  }, [loadWorkspace]);
+  }, [access, loadWorkspace]);
 
   useEffect(() => {
     if (!data) return;
@@ -108,7 +126,21 @@ export function DashboardClient({ user }: { user: { name: string; email: string 
     return () => lifecycle.abort();
   }, [data]);
 
-  if (!data) {
+  if (accessDenied) {
+    return (
+      <main className="signin-shell">
+        <section className="signin-card">
+          <div className="brand-mark brand-mark-large">P</div>
+          <p className="eyebrow">Protos Common Center</p>
+          <h1>Your account needs an invitation.</h1>
+          <p className="signin-copy">Sign in with the email address invited by a Protos owner or administrator.</p>
+          <UserButton />
+        </section>
+      </main>
+    );
+  }
+
+  if (!data || !access) {
     return (
       <main className="signin-shell">
         <section className="signin-card">
@@ -156,7 +188,7 @@ export function DashboardClient({ user }: { user: { name: string; email: string 
     if (!recordTitle.trim()) return;
     try {
       if (!["task", "lead", "content"].includes(recordType)) throw new Error("unsupported record type");
-      await mutate({ action: "create", type: recordType, title: recordTitle.trim(), owner: recordOwner });
+      await mutate({ action: "create", type: recordType, title: recordTitle.trim(), owner: recordOwner || defaultRecordOwner });
       await loadWorkspace(true);
       setQuickOpen(false); setRecordTitle(""); toast.success("New record created");
     } catch { toast.error("The record could not be created"); }
@@ -179,7 +211,7 @@ export function DashboardClient({ user }: { user: { name: string; email: string 
       <header className="topbar"><button className="menu-button" onClick={() => setMobileNav(true)} aria-label="Open navigation"><Menu /></button><div><p className="breadcrumb">Protos / {currentLabel}</p><h1>{currentLabel}</h1></div><div className="topbar-actions"><label className="searchbox"><Search /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search workspace" /><kbd>⌘ K</kbd></label><button className="icon-button" aria-label="Notifications"><Bell /><span className="notification-dot" /></button><Button onClick={() => setQuickOpen(true)} className="quick-button"><Plus />Create</Button></div></header>
       <section className="workspace">{views[view]}</section>
     </main>
-    <Dialog open={quickOpen} onOpenChange={setQuickOpen}><DialogContent className="quick-dialog"><DialogHeader><DialogTitle>Create a record</DialogTitle><DialogDescription>Add a task, lead, or content idea without leaving your current view.</DialogDescription></DialogHeader><div className="dialog-fields"><label><span>Type</span><Select value={recordType} onValueChange={setRecordType}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="task">Task</SelectItem><SelectItem value="lead">Lead</SelectItem><SelectItem value="content">Content idea</SelectItem></SelectContent></Select></label><label><span>Name</span><Input value={recordTitle} onChange={(event) => setRecordTitle(event.target.value)} placeholder={recordType === "lead" ? "Business name" : "Clear, actionable title"} /></label><label><span>Owner</span><Select value={recordOwner} onValueChange={setRecordOwner}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent>{data.members.map((member) => <SelectItem value={member.name} key={member.id}>{member.name}</SelectItem>)}</SelectContent></Select></label></div><DialogFooter><Button variant="outline" onClick={() => setQuickOpen(false)}>Cancel</Button><Button onClick={createQuickRecord} disabled={!recordTitle.trim()}>Create record</Button></DialogFooter></DialogContent></Dialog>
+    <Dialog open={quickOpen} onOpenChange={setQuickOpen}><DialogContent className="quick-dialog"><DialogHeader><DialogTitle>Create a record</DialogTitle><DialogDescription>Add a task, lead, or content idea without leaving your current view.</DialogDescription></DialogHeader><div className="dialog-fields"><label><span>Type</span><Select value={recordType} onValueChange={setRecordType}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="task">Task</SelectItem><SelectItem value="lead">Lead</SelectItem><SelectItem value="content">Content idea</SelectItem></SelectContent></Select></label><label><span>Name</span><Input value={recordTitle} onChange={(event) => setRecordTitle(event.target.value)} placeholder={recordType === "lead" ? "Business name" : "Clear, actionable title"} /></label><label><span>Owner</span><Select value={recordOwner || defaultRecordOwner} onValueChange={setRecordOwner}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent>{data.members.map((member) => <SelectItem value={member.name} key={member.id}>{member.name}</SelectItem>)}</SelectContent></Select></label></div><DialogFooter><Button variant="outline" onClick={() => setQuickOpen(false)}>Cancel</Button><Button onClick={createQuickRecord} disabled={!recordTitle.trim()}>Create record</Button></DialogFooter></DialogContent></Dialog>
     <Toaster richColors position="bottom-right" />
   </div>;
 }

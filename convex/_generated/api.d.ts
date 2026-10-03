@@ -10,6 +10,7 @@
 
 import type * as lib_accessPolicy from "../lib/accessPolicy.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as memberships from "../memberships.js";
 import type * as seedData from "../seedData.js";
 import type * as workspace from "../workspace.js";
 
@@ -22,6 +23,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   "lib/accessPolicy": typeof lib_accessPolicy;
   "lib/auth": typeof lib_auth;
+  memberships: typeof memberships;
   seedData: typeof seedData;
   workspace: typeof workspace;
 }>;
