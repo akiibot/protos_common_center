@@ -23,6 +23,9 @@ The current release is an operational foundation, not the finished system. Sever
 | Understand the product and company context | [Product vision](docs/PRODUCT_VISION.md) |
 | See what comes next | [Roadmap](ROADMAP.md) |
 | Choose an implementation task | [Implementation plan](docs/IMPLEMENTATION_PLAN.md) and [GitHub Issues](https://github.com/akiibot/protos_common_center/issues) |
+| Implement secure team access | [Phase 1 access implementation plan](docs/PHASE_1_ACCESS_IMPLEMENTATION_PLAN.md) |
+| Operate onboarding, roles, MFA, and offboarding | [Access operations runbook](docs/ACCESS_OPERATIONS_RUNBOOK.md) |
+| Release or roll back Phase 1 | [Phase 1 release runbook](docs/PHASE_1_RELEASE_RUNBOOK.md) |
 | Understand the codebase | [Architecture](docs/ARCHITECTURE.md) |
 | Understand records and relationships | [Data model](docs/DATA_MODEL.md) |
 | Run the application locally | [Development setup](docs/DEVELOPMENT_SETUP.md) |
@@ -30,10 +33,12 @@ The current release is an operational foundation, not the finished system. Sever
 
 ## Technology
 
-- React 19 and Next-compatible Vinext
+- React 19 and Next.js 16, with a compatible Vinext Sites build
 - TypeScript
-- Cloudflare Workers for the web application runtime
+- Clerk for invitation-only identity and MFA
 - Convex for the application backend and database
+- Vercel for the authenticated Next.js deployment
+- Cloudflare Workers/OpenAI Sites for the reference deployment
 - Tailwind CSS and shared UI primitives
 - OpenAI Sites hosting
 
@@ -43,11 +48,10 @@ Requirements: Node.js 22.13 or newer, npm, and Git.
 
 ```bash
 npm install
-npm run build
-npm run dev
+npm run dev:vercel
 ```
 
-The local application opens at `http://127.0.0.1:5173`. Convex setup and deployment instructions are in [docs/DEVELOPMENT_SETUP.md](docs/DEVELOPMENT_SETUP.md).
+The authenticated local application opens at `http://localhost:3000`. Convex and Clerk setup instructions are in [docs/DEVELOPMENT_SETUP.md](docs/DEVELOPMENT_SETUP.md).
 
 ## Collaboration workflow
 
