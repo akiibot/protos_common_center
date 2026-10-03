@@ -22,6 +22,7 @@ Deploy Protos Common Center to Vercel without interrupting the current OpenAI Si
 - `DEPLOYMENT_READ_ONLY=true` remains enforced in Preview.
 - Vercel SSO currently protects the deployment before application authentication.
 - The Preview URL is registered as an allowed Clerk Development redirect.
+- Hosted owner-canary evidence: `POST /api/access`, `GET /api/memberships`, and repeated `GET /api/workspace` requests returned HTTP 200 on 2026-10-03.
 - Production variables and the production deployment were not changed.
 
 ## Build commands

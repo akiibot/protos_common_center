@@ -13,6 +13,7 @@ Current checkpoint:
 - Workspace reads and current task/lead/create mutations enforce authenticated membership and role permissions.
 - Owner/admin membership administration supports role changes, deactivation/reactivation, invitation resend/cancel, and guarded ownership transfer.
 - Vercel Preview uses Clerk Development plus Convex Development, remains read-only, and is additionally protected by Vercel SSO.
+- The hosted Owner canary passed: application access provisioning, membership administration reads, and workspace reads all returned HTTP 200 without runtime errors.
 - Production configuration and deployment remain unchanged and read-only.
 - Automated policy and API error-mapping tests are active; integration and browser coverage remain open.
 
