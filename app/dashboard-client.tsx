@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { UserButton } from "@clerk/nextjs";
 import {
   BadgeDollarSign, Bell, BookOpen, BriefcaseBusiness, CalendarDays,
   CheckCircle2, ChevronRight, CircleAlert, CircleDot, Command,
@@ -172,7 +173,7 @@ export function DashboardClient({ user }: { user: { name: string; email: string 
       <div className="sidebar-brand"><div className="brand-mark">P</div><div><strong>Protos</strong><span>Common Center</span></div><button className="mobile-close" onClick={() => setMobileNav(false)} aria-label="Close navigation"><X /></button></div>
       <nav aria-label="Main navigation"><p className="nav-label">Operate</p>{nav.slice(0, 6).map((item) => <NavItem key={item.id} item={item} active={view === item.id} onClick={() => { setView(item.id); setMobileNav(false); }} />)}<p className="nav-label nav-label-spaced">Company</p>{nav.slice(6).map((item) => <NavItem key={item.id} item={item} active={view === item.id} onClick={() => { setView(item.id); setMobileNav(false); }} />)}</nav>
       <div className="phase-card"><div className="phase-top"><span>Phase 1</span><strong>36%</strong></div><Progress value={36} /><p>Foundation · BDT 50K target</p></div>
-      <div className="profile-chip"><span className="avatar">{initials(user.name)}</span><div><strong>{shortName(user.name)}</strong><span>Founder workspace</span></div></div>
+      <div className="profile-chip"><UserButton /><div><strong>{shortName(user.name)}</strong><span>Protos workspace</span></div></div>
     </aside>
     <main className="main-area">
       <header className="topbar"><button className="menu-button" onClick={() => setMobileNav(true)} aria-label="Open navigation"><Menu /></button><div><p className="breadcrumb">Protos / {currentLabel}</p><h1>{currentLabel}</h1></div><div className="topbar-actions"><label className="searchbox"><Search /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search workspace" /><kbd>⌘ K</kbd></label><button className="icon-button" aria-label="Notifications"><Bell /><span className="notification-dot" /></button><Button onClick={() => setQuickOpen(true)} className="quick-button"><Plus />Create</Button></div></header>
