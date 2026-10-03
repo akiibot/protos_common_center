@@ -13,6 +13,17 @@ Deploy Protos Common Center to Vercel without interrupting the current OpenAI Si
 - Keep the existing production Convex deployment unchanged.
 - Promote to a Vercel production domain only after access control is approved and the preview passes smoke testing.
 
+## Current Preview checkpoint
+
+- Deployment: <https://protos-common-center-qwhqjl7y8-akiiibots-projects.vercel.app>
+- Vercel deployment ID: `dpl_8CjaDR3n2NvaTeKy5bdZ2L7q1ksW`
+- Preview uses the Clerk Development instance and Convex Development deployment.
+- Preview has its own matching `WORKSPACE_API_SECRET`; the legacy `CONVEX_SERVER_SECRET` has been removed from Preview.
+- `DEPLOYMENT_READ_ONLY=true` remains enforced in Preview.
+- Vercel SSO currently protects the deployment before application authentication.
+- The Preview URL is registered as an allowed Clerk Development redirect.
+- Production variables and the production deployment were not changed.
+
 ## Build commands
 
 | Target | Command |
@@ -23,10 +34,12 @@ Deploy Protos Common Center to Vercel without interrupting the current OpenAI Si
 
 ## Environment contract
 
-The Vercel runtime requires:
+The authenticated Vercel runtime requires:
 
 - `NEXT_PUBLIC_CONVEX_URL` — the selected Convex deployment URL;
-- `CONVEX_SERVER_SECRET` — the server-only credential matching Convex `WORKSPACE_API_SECRET`; and
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` — the environment-specific Clerk publishable key;
+- `CLERK_SECRET_KEY` — the environment-specific server-only Clerk key;
+- `WORKSPACE_API_SECRET` — a server-only credential matching the selected Convex deployment; and
 - `DEPLOYMENT_READ_ONLY=true` on the first Preview deployment.
 
 Never expose the server credential in a `NEXT_PUBLIC_` variable.

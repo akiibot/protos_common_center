@@ -1,8 +1,20 @@
 # Phase 1 Implementation Plan: Team Access, Identity, and Authorization
 
-Status: implementation started
+Status: implementation in progress — development owner canary and isolated Preview deployed
 
 Created: 2026-10-03
+
+Last verified: 2026-10-03
+
+Current checkpoint:
+
+- Clerk Development is invitation-only and connected to Convex Development.
+- All seven membership records exist; the owner account is active and six memberships remain invited.
+- Workspace reads and current task/lead/create mutations enforce authenticated membership and role permissions.
+- Owner/admin membership administration supports role changes, deactivation/reactivation, invitation resend/cancel, and guarded ownership transfer.
+- Vercel Preview uses Clerk Development plus Convex Development, remains read-only, and is additionally protected by Vercel SSO.
+- Production configuration and deployment remain unchanged and read-only.
+- Automated policy and API error-mapping tests are active; integration and browser coverage remain open.
 
 Owners: product owner and implementation lead
 
