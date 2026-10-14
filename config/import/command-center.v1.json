@@ -1,0 +1,14 @@
+{
+  "mappingVersion": "1.0.0",
+  "status": "draft",
+  "sourceNamespace": "protos-command-center",
+  "sourceSha256": null,
+  "approvedAt": null,
+  "approvedBy": null,
+  "blockingDecisions": [
+    "The approved source workbook snapshot has not been provided.",
+    "Sheet, column, relationship, owner, status, date, and money mappings require data-owner approval."
+  ],
+  "entityMappings": [],
+  "fieldMappings": []
+}

@@ -52,6 +52,8 @@ Seven team members can use the system with appropriate permissions, and every im
 
 ## Epic B — Spreadsheet import and reconciliation
 
+Execution plan: [Phase 2 Implementation Plan: Spreadsheet Inventory, Import, and Reconciliation](PHASE_2_DATA_IMPORT_IMPLEMENTATION_PLAN.md)
+
 ### Outcome
 
 The complete command-center spreadsheet can be imported without silent data loss or duplication.

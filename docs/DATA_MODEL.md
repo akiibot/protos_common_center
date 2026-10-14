@@ -63,6 +63,12 @@ Human-readable recent activity. Important fields: actor, action, entity type, en
 
 Target changes: stable actor ID, structured action type, change metadata, source, and correlation/transaction ID.
 
+### importRuns, importRowResults, and importRecordLinks
+
+Additive Phase 2 metadata for controlled spreadsheet imports. `importRuns` stores the approved source, mapping, plan digest, operator, state, and aggregate reconciliation counts. `importRowResults` stores safe row locations, fingerprints, outcomes, and diagnostic codes without raw private row payloads. `importRecordLinks` provides organization-scoped source-to-target provenance and exact-rerun idempotency.
+
+Dry runs do not create any of these records. They remain read-only analysis until an authorized apply starts.
+
 ## Target relationships
 
 ```text

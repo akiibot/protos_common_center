@@ -63,6 +63,9 @@ The build must succeed before a pull request is ready for review.
 | `npm run start` | Run the built Worker locally. |
 | `npm run convex:dev` | Sync Convex functions and regenerate typed bindings. |
 | `npm run convex:deploy` | Deploy schema and functions to the production Convex deployment. |
+| `npm run test:import` | Run Phase 2 mapping, inventory, digest, and import-policy tests. |
+| `npm run import:inventory -- --input <source.xlsx> --output <private-report.json> --source-label <safe-label>` | Inventory an approved `.xlsx` snapshot without storing cell values in the report. |
+| `npm run import:dry-run -- --input <source.xlsx> --mapping <mapping.json> --output-dir <private-directory> --organization-id <development-organization-id>` | Parse an approved source and produce private and sanitized dry-run reports without database writes. |
 | `npm run lint` | Run static lint checks when relevant. |
 
 ## Working on an issue

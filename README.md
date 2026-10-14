@@ -24,6 +24,7 @@ The current release is an operational foundation, not the finished system. Sever
 | See what comes next | [Roadmap](ROADMAP.md) |
 | Choose an implementation task | [Implementation plan](docs/IMPLEMENTATION_PLAN.md) and [GitHub Issues](https://github.com/akiibot/protos_common_center/issues) |
 | Implement secure team access | [Phase 1 access implementation plan](docs/PHASE_1_ACCESS_IMPLEMENTATION_PLAN.md) |
+| Implement spreadsheet import and reconciliation | [Phase 2 data import implementation plan](docs/PHASE_2_DATA_IMPORT_IMPLEMENTATION_PLAN.md) |
 | Operate onboarding, roles, MFA, and offboarding | [Access operations runbook](docs/ACCESS_OPERATIONS_RUNBOOK.md) |
 | Release or roll back Phase 1 | [Phase 1 release runbook](docs/PHASE_1_RELEASE_RUNBOOK.md) |
 | Understand the codebase | [Architecture](docs/ARCHITECTURE.md) |
