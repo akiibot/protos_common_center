@@ -15,6 +15,30 @@ const membershipStatus = v.union(
   v.literal("active"),
   v.literal("deactivated"),
 );
+const importRunStatus = v.union(
+  v.literal("applying"),
+  v.literal("completed"),
+  v.literal("failed"),
+  v.literal("cancelled"),
+);
+const importRowOutcome = v.union(
+  v.literal("created"),
+  v.literal("linked"),
+  v.literal("unchanged"),
+  v.literal("skipped"),
+  v.literal("warning"),
+  v.literal("failed"),
+  v.literal("conflict"),
+);
+const importCounts = v.object({
+  created: v.number(),
+  linked: v.number(),
+  unchanged: v.number(),
+  skipped: v.number(),
+  warning: v.number(),
+  failed: v.number(),
+  conflict: v.number(),
+});
 
 export default defineSchema({
   organizations: defineTable({
@@ -196,4 +220,66 @@ export default defineSchema({
   })
     .index("by_external_id", ["id"])
     .index("by_organization_created", ["organizationId", "createdAt"]),
+
+  importRuns: defineTable({
+    id: v.string(),
+    organizationId: v.string(),
+    sourceLabel: v.string(),
+    sourceSha256: v.string(),
+    sourceSnapshotAt: v.string(),
+    mappingVersion: v.string(),
+    planDigest: v.string(),
+    status: importRunStatus,
+    startedByUserId: v.id("users"),
+    startedByMemberId: v.string(),
+    startedAt: v.string(),
+    completedAt: nullableString,
+    expectedCounts: importCounts,
+    actualCounts: v.union(importCounts, v.null()),
+    lastErrorCode: nullableString,
+    createdAt: v.string(),
+    updatedAt: v.string(),
+  })
+    .index("by_external_id", ["id"])
+    .index("by_organization_created", ["organizationId", "createdAt"])
+    .index("by_organization_status", ["organizationId", "status"])
+    .index("by_organization_plan_digest", ["organizationId", "planDigest"]),
+
+  importRowResults: defineTable({
+    id: v.string(),
+    organizationId: v.string(),
+    importRunId: v.string(),
+    rowKey: v.string(),
+    sourceSheet: v.string(),
+    sourceRow: v.number(),
+    entityType: v.string(),
+    sourceKeyHash: v.string(),
+    rowFingerprint: v.string(),
+    outcome: importRowOutcome,
+    targetExternalId: nullableString,
+    diagnosticCodes: v.array(v.string()),
+    createdAt: v.string(),
+  })
+    .index("by_run_row_key", ["importRunId", "rowKey"])
+    .index("by_run_outcome", ["importRunId", "outcome"])
+    .index("by_organization_run", ["organizationId", "importRunId"]),
+
+  importRecordLinks: defineTable({
+    id: v.string(),
+    organizationId: v.string(),
+    entityType: v.string(),
+    sourceNamespace: v.string(),
+    sourceKeyHash: v.string(),
+    targetExternalId: v.string(),
+    firstImportRunId: v.string(),
+    lastImportRunId: v.string(),
+    sourceRowFingerprint: v.string(),
+    targetFingerprintAtImport: v.string(),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+  })
+    .index("by_external_id", ["id"])
+    .index("by_organization_source", ["organizationId", "entityType", "sourceNamespace", "sourceKeyHash"])
+    .index("by_organization_target", ["organizationId", "entityType", "targetExternalId"])
+    .index("by_last_import_run", ["lastImportRunId"]),
 });

@@ -8,8 +8,10 @@
  * @module
  */
 
+import type * as imports from "../imports.js";
 import type * as lib_accessPolicy from "../lib/accessPolicy.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_importPolicy from "../lib/importPolicy.js";
 import type * as memberships from "../memberships.js";
 import type * as seedData from "../seedData.js";
 import type * as testing from "../testing.js";
@@ -22,8 +24,10 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  imports: typeof imports;
   "lib/accessPolicy": typeof lib_accessPolicy;
   "lib/auth": typeof lib_auth;
+  "lib/importPolicy": typeof lib_importPolicy;
   memberships: typeof memberships;
   seedData: typeof seedData;
   testing: typeof testing;

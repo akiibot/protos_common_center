@@ -45,3 +45,10 @@ test("owners can change every role and other roles cannot", () => {
     assert.equal(canChangeRole(role, "member", "viewer"), false);
   }
 });
+
+test("only owners can manage imports before delegation is approved", () => {
+  assert.equal(hasPermission("owner", "import:manage"), true);
+  for (const role of ["admin", "manager", "member", "viewer"] as const) {
+    assert.equal(hasPermission(role, "import:manage"), false);
+  }
+});

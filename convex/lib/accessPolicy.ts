@@ -34,6 +34,7 @@ export const permissions = [
   "role:manage",
   "ownership:transfer",
   "organization:security",
+  "import:manage",
 ] as const;
 
 export type Permission = (typeof permissions)[number];
