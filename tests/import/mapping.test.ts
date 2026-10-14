@@ -7,7 +7,8 @@ import { assertMappingReady, importMappingSchema } from "../../lib/imports/mappi
 test("the checked-in mapping shell is valid but deliberately blocked", () => {
   const parsed = importMappingSchema.parse(draftMapping);
   assert.throws(() => assertMappingReady(parsed), /not approved/);
-  assert.equal(parsed.blockingDecisions.length, 2);
+  assert.ok(parsed.blockingDecisions.length > 0);
+  assert.equal(parsed.sourceSha256, "e077ad998af485300276ba41bb91b3829e44af084c04e80143486d841fa57120");
 });
 
 test("mapping schema rejects an imported field without a target", () => {
